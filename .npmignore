@@ -1,0 +1,10 @@
+src/
+examples.ts
+examples-typesafe.ts
+tsconfig.json
+.vscode/
+*.test.ts
+coverage/
+.env
+.env.local
+CONTRIBUTING.md
