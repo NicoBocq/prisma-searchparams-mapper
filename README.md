@@ -1,6 +1,8 @@
 # 🧭 prisma-searchparams-mapper
 
 [![npm version](https://img.shields.io/npm/v/prisma-searchparams-mapper.svg?color=blue)](https://www.npmjs.com/package/prisma-searchparams-mapper)
+[![npm downloads](https://img.shields.io/npm/dm/prisma-searchparams-mapper.svg)](https://npmjs.com/package/prisma-searchparams-mapper)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/prisma-searchparams-mapper)](https://bundlephobia.com/package/prisma-searchparams-mapper)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![typescript](https://img.shields.io/badge/written%20in-TypeScript-blue)](tsconfig.json)
 [![AI friendly](https://img.shields.io/badge/AI-friendly-purple)](AI_USAGE.md)
