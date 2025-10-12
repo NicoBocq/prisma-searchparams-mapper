@@ -57,6 +57,14 @@
   ],
   "author": "Nicolas Bocquet",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NicoBocq/prisma-searchparams-mapper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NicoBocq/prisma-searchparams-mapper/issues"
+  },
+  "homepage": "https://github.com/NicoBocq/prisma-searchparams-mapper#readme",
   "peerDependencies": {
     "@prisma/client": ">=4.0.0"
   },
