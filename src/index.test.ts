@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   createParser,
+  mergeQuery,
   mergeRelations,
+  mergeWhere,
   parseNestedRelations,
   parseSearchParams,
   toSearchParams,
@@ -115,6 +117,51 @@ describe('mergeRelations', () => {
     const relations = { user: { name: 'John' } }
     const result = mergeRelations(where, relations)
     expect(result).toEqual({ status: 'active', user: { name: 'John' } })
+  })
+})
+
+describe('merge with contextual where', () => {
+  it('should merge contextual where with helper function', () => {
+    const contextualWhere = { tenantId: 'tenant-123', userId: 'user-456' }
+    const query = parseSearchParams('?status=active&role=admin')
+
+    const merged = mergeWhere(contextualWhere, query)
+
+    expect(merged.where).toEqual({
+      tenantId: 'tenant-123',
+      userId: 'user-456',
+      status: 'active',
+      role: 'admin',
+    })
+  })
+
+  it('should preserve orderBy and pagination when merging', () => {
+    const contextualWhere = { tenantId: 'tenant-123' }
+    const query = parseSearchParams(
+      '?status=active&order=createdAt_desc&page=2',
+    )
+
+    const merged = mergeWhere(contextualWhere, query)
+
+    expect(merged).toEqual({
+      where: {
+        tenantId: 'tenant-123',
+        status: 'active',
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: 10,
+      take: 10,
+    })
+  })
+  it('should preserve existing where when merging', () => {
+    const contextualWhere = { tenantId: 'XXXXXXXXXX' }
+    const query = parseSearchParams('?tenantId=YYYYYYYYY')
+
+    const merged = mergeWhere(contextualWhere, query)
+
+    expect(merged.where).toEqual({
+      tenantId: 'XXXXXXXXXX',
+    })
   })
 })
 
@@ -285,5 +332,439 @@ describe('Search mode and operators', () => {
     expect(orConditions[0]).toHaveProperty('name')
     expect(orConditions[1]).toHaveProperty('user.email')
     expect(orConditions[2]).toHaveProperty('post.title')
+  })
+})
+
+describe('Custom keys', () => {
+  it('should use custom searchKey', () => {
+    const result = parseSearchParams('?q=john', {
+      searchFields: ['name', 'email'],
+      searchKey: 'q',
+    })
+
+    expect(result.where).toHaveProperty('OR')
+  })
+
+  it('should use custom orderKey', () => {
+    const result = parseSearchParams('?sort=name_asc', {
+      orderKey: 'sort',
+    })
+
+    expect(result.orderBy).toEqual({ name: 'asc' })
+  })
+
+  it('should accept q as alias when searchKey is search', () => {
+    const result = parseSearchParams('?q=john', {
+      searchFields: ['name', 'email'],
+      searchKey: 'search', // default
+    })
+
+    expect(result.where).toHaveProperty('OR')
+  })
+
+  it('should not accept q as alias when searchKey is custom', () => {
+    const result = parseSearchParams('?q=john', {
+      searchFields: ['name', 'email'],
+      searchKey: 'query',
+    })
+
+    expect(result.where).not.toHaveProperty('OR')
+  })
+
+  it('should combine custom keys', () => {
+    const result = parseSearchParams('?query=john&sort=name_desc', {
+      searchFields: ['name'],
+      searchKey: 'query',
+      orderKey: 'sort',
+    })
+
+    expect(result.where).toHaveProperty('OR')
+    expect(result.orderBy).toEqual({ name: 'desc' })
+  })
+})
+
+describe('mergeQuery (where + orderBy)', () => {
+  it('should merge where and orderBy', () => {
+    const contextualQuery = {
+      where: { tenantId: 'tenant-123' },
+      orderBy: { createdAt: 'desc' as const },
+    }
+    const parsedQuery = parseSearchParams('?status=active')
+
+    const merged = mergeQuery(contextualQuery, parsedQuery)
+
+    expect(merged).toEqual({
+      where: {
+        status: 'active',
+        tenantId: 'tenant-123',
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: undefined,
+      take: undefined,
+    })
+  })
+
+  it('should allow user to override default orderBy', () => {
+    const contextualQuery = {
+      where: { tenantId: 'tenant-123' },
+      orderBy: { createdAt: 'desc' as const },
+    }
+    const parsedQuery = parseSearchParams('?status=active&order=name_asc')
+
+    const merged = mergeQuery(contextualQuery, parsedQuery)
+
+    expect(merged.orderBy).toEqual({ name: 'asc' })
+  })
+
+  it('should use default orderBy when user does not provide one', () => {
+    const contextualQuery = {
+      where: { tenantId: 'tenant-123' },
+      orderBy: { createdAt: 'desc' as const },
+    }
+    const parsedQuery = parseSearchParams('?status=active')
+
+    const merged = mergeQuery(contextualQuery, parsedQuery)
+
+    expect(merged.orderBy).toEqual({ createdAt: 'desc' })
+  })
+
+  it('should prevent user from overriding contextual where', () => {
+    const contextualQuery = {
+      where: { tenantId: 'tenant-123' },
+    }
+    const parsedQuery = parseSearchParams('?tenantId=tenant-456&status=active')
+
+    const merged = mergeQuery(contextualQuery, parsedQuery)
+
+    expect(merged.where).toEqual({
+      status: 'active',
+      tenantId: 'tenant-123', // contextual has priority
+    })
+  })
+
+  it('should preserve pagination', () => {
+    const contextualQuery = {
+      where: { tenantId: 'tenant-123' },
+      orderBy: { createdAt: 'desc' as const },
+    }
+    const parsedQuery = parseSearchParams('?page=2&pageSize=20')
+
+    const merged = mergeQuery(contextualQuery, parsedQuery)
+
+    expect(merged.skip).toBe(20)
+    expect(merged.take).toBe(20)
+  })
+})
+
+describe('Edge cases', () => {
+  it('should handle empty search params', () => {
+    const result = parseSearchParams('')
+    expect(result).toEqual({
+      where: {},
+      orderBy: undefined,
+      skip: undefined,
+      take: undefined,
+    })
+  })
+
+  it('should handle empty URLSearchParams', () => {
+    const result = parseSearchParams(new URLSearchParams())
+    expect(result).toEqual({
+      where: {},
+      orderBy: undefined,
+      skip: undefined,
+      take: undefined,
+    })
+  })
+
+  it('should handle params with empty values', () => {
+    const result = parseSearchParams('?status=&name=')
+    expect(result.where).toEqual({
+      status: '',
+      name: '',
+    })
+  })
+
+  it('should handle special characters in values', () => {
+    const result = parseSearchParams('?email=test%2Buser%40example.com')
+    expect(result.where).toEqual({
+      email: 'test+user@example.com',
+    })
+  })
+
+  it('should handle multiple operators on same field', () => {
+    const result = parseSearchParams('?age_gte=18&age_lte=65')
+    expect(result.where).toEqual({
+      age: { gte: 18, lte: 65 },
+    })
+  })
+
+  it('should handle conflicting operators on same field', () => {
+    const result = parseSearchParams('?age_gte=18&age_gt=20')
+    expect(result.where).toEqual({
+      age: { gte: 18, gt: 20 },
+    })
+  })
+
+  it('should handle invalid page number', () => {
+    const result = parseSearchParams('?page=invalid')
+    expect(result.skip).toBe(0)
+    expect(result.take).toBe(10)
+  })
+
+  it('should handle negative page number as page=1', () => {
+    const result = parseSearchParams('?page=-1')
+    expect(result.skip).toBe(0) // treated as page 1
+    expect(result.take).toBe(10)
+  })
+
+  it('should handle page=0 as page=1', () => {
+    const result = parseSearchParams('?page=0')
+    expect(result.skip).toBe(0) // treated as page 1
+    expect(result.take).toBe(10)
+  })
+
+  it('should handle invalid skip value', () => {
+    const result = parseSearchParams('?skip=invalid')
+    expect(result.skip).toBe(0)
+  })
+
+  it('should handle negative skip value', () => {
+    const result = parseSearchParams('?skip=-10')
+    expect(result.skip).toBe(-10)
+  })
+
+  it('should handle invalid take value', () => {
+    const result = parseSearchParams('?take=invalid')
+    expect(result.take).toBe(10) // default pageSize
+  })
+
+  it('should handle zero take value as default', () => {
+    const result = parseSearchParams('?take=0')
+    expect(result.take).toBe(10) // treated as default pageSize
+  })
+
+  it('should handle negative take value as default', () => {
+    const result = parseSearchParams('?take=-5')
+    expect(result.take).toBe(10) // treated as default pageSize
+  })
+
+  it('should handle invalid order format', () => {
+    const result = parseSearchParams('?order=invalid')
+    expect(result.orderBy).toEqual({ invalid: 'asc' })
+  })
+
+  it('should handle order without direction', () => {
+    const result = parseSearchParams('?order=name')
+    expect(result.orderBy).toEqual({ name: 'asc' })
+  })
+
+  it('should handle order with invalid direction', () => {
+    const result = parseSearchParams('?order=name_invalid')
+    expect(result.orderBy).toEqual({ name: 'asc' })
+  })
+
+  it('should handle search without searchFields', () => {
+    const result = parseSearchParams('?search=john')
+    expect(result.where).toEqual({})
+  })
+
+  it('should handle search with empty searchFields', () => {
+    const result = parseSearchParams('?search=john', {
+      searchFields: [],
+    })
+    expect(result.where).toEqual({})
+  })
+
+  it('should ignore empty search value', () => {
+    const result = parseSearchParams('?search=', {
+      searchFields: ['name'],
+    })
+    expect(result.where).toEqual({}) // empty search is ignored
+  })
+
+  it('should handle duplicate keys with different values', () => {
+    const params = new URLSearchParams()
+    params.append('status', 'active')
+    params.append('status', 'pending')
+    const result = parseSearchParams(params)
+    expect(result.where).toEqual({
+      status: { in: ['active', 'pending'] },
+    })
+  })
+
+  it('should handle CSV with empty values', () => {
+    const result = parseSearchParams('?role=admin,,user')
+    expect(result.where).toEqual({
+      role: { in: ['admin', '', 'user'] },
+    })
+  })
+
+  it('should handle operator with empty value', () => {
+    const result = parseSearchParams('?name_contains=')
+    expect(result.where).toEqual({
+      name: { contains: '' },
+    })
+  })
+
+  it('should handle nested relations with empty values', () => {
+    const result = parseNestedRelations('?user.name=')
+    expect(result).toEqual({
+      user: { name: '' },
+    })
+  })
+
+  it('should handle deeply nested relations', () => {
+    const result = parseNestedRelations('?user.profile.address.city=Paris')
+    expect(result).toEqual({
+      user: {
+        profile: {
+          address: {
+            city: 'Paris',
+          },
+        },
+      },
+    })
+  })
+
+  it('should handle mergeWhere with empty contextual where', () => {
+    const result = mergeWhere({}, parseSearchParams('?status=active'))
+    expect(result.where).toEqual({ status: 'active' })
+  })
+
+  it('should handle mergeWhere with empty parsed query', () => {
+    const result = mergeWhere({ tenantId: 'x' }, parseSearchParams(''))
+    expect(result.where).toEqual({ tenantId: 'x' })
+  })
+
+  it('should handle mergeQuery with empty contextual query', () => {
+    const result = mergeQuery({}, parseSearchParams('?status=active'))
+    expect(result.where).toEqual({ status: 'active' })
+  })
+
+  it('should handle mergeQuery with only orderBy in contextual', () => {
+    const result = mergeQuery(
+      { orderBy: { createdAt: 'desc' } },
+      parseSearchParams('?status=active'),
+    )
+    expect(result).toEqual({
+      where: { status: 'active' },
+      orderBy: { createdAt: 'desc' },
+      skip: undefined,
+      take: undefined,
+    })
+  })
+
+  it('should handle custom keys with special characters', () => {
+    const result = parseSearchParams('?my-search=john', {
+      searchFields: ['name'],
+      searchKey: 'my-search',
+    })
+    expect(result.where).toHaveProperty('OR')
+  })
+
+  it('should handle boolean string values', () => {
+    const result = parseSearchParams('?isActive=true&isDeleted=false')
+    expect(result.where).toEqual({
+      isActive: true,
+      isDeleted: false,
+    })
+  })
+
+  it('should handle numeric string values', () => {
+    const result = parseSearchParams('?age=25&score=100.5')
+    expect(result.where).toEqual({
+      age: 25,
+      score: 100.5,
+    })
+  })
+
+  it('should trim and parse string that looks like number', () => {
+    const result = parseSearchParams('?code= 123 ')
+    expect(result.where).toEqual({
+      code: 123, // trimmed and parsed as number
+    })
+  })
+
+  it('should handle mixed types in CSV', () => {
+    const result = parseSearchParams('?values=true,123,text,false')
+    expect(result.where).toEqual({
+      values: { in: [true, 123, 'text', false] },
+    })
+  })
+
+  it('should handle URL with question mark prefix', () => {
+    const result = parseSearchParams('?status=active')
+    expect(result.where).toEqual({ status: 'active' })
+  })
+
+  it('should handle URL without question mark prefix', () => {
+    const result = parseSearchParams('status=active')
+    expect(result.where).toEqual({ status: 'active' })
+  })
+
+  it('should handle toSearchParams with empty query', () => {
+    const params = toSearchParams({ where: {} })
+    expect(params.toString()).toBe('')
+  })
+
+  it('should handle toSearchParams with undefined values', () => {
+    const params = toSearchParams({
+      where: { status: 'active' },
+      orderBy: undefined,
+      skip: undefined,
+      take: undefined,
+    })
+    expect(params.toString()).toBe('status=active')
+  })
+
+  it('should handle single orderBy field', () => {
+    const result = parseSearchParams('?order=status_asc')
+    expect(result.orderBy).toEqual({ status: 'asc' })
+  })
+})
+
+describe('not and notIn operators', () => {
+  it('should parse not operator', () => {
+    const result = parseSearchParams('?status_not=deleted')
+    expect(result.where).toEqual({
+      status: { not: 'deleted' },
+    })
+  })
+
+  it('should parse notIn operator', () => {
+    const result = parseSearchParams('?role_notIn=guest,banned')
+    expect(result.where).toEqual({
+      role: { notIn: ['guest', 'banned'] },
+    })
+  })
+
+  it('should combine not with other operators', () => {
+    const result = parseSearchParams('?age_gte=18&status_not=deleted')
+    expect(result.where).toEqual({
+      age: { gte: 18 },
+      status: { not: 'deleted' },
+    })
+  })
+
+  it('should parse notIn with single value', () => {
+    const result = parseSearchParams('?status_notIn=deleted')
+    expect(result.where).toEqual({
+      status: { notIn: ['deleted'] },
+    })
+  })
+
+  it('should parse not with boolean', () => {
+    const result = parseSearchParams('?isDeleted_not=true')
+    expect(result.where).toEqual({
+      isDeleted: { not: true },
+    })
+  })
+
+  it('should parse not with number', () => {
+    const result = parseSearchParams('?age_not=25')
+    expect(result.where).toEqual({
+      age: { not: 25 },
+    })
   })
 })

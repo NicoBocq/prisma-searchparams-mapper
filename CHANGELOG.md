@@ -1,69 +1,75 @@
 # Changelog
 
-## [0.1.0] - 2025-01-10
+All notable changes to this project will be documented in this file.
 
-### ✨ Features
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-- **Type-safe Prisma integration**: Support complet des types génériques Prisma
-  - `TWhereInput` pour les filtres (ex: `Prisma.UserWhereInput`)
-  - `TOrderByInput` pour le tri (ex: `Prisma.UserOrderByWithRelationInput`)
-  - `searchFields` type-safe avec validation des champs directs
-  - Support des nested fields (ex: `author.name`, `post.title`)
-  
-- **Parsing bidirectionnel**:
+## [Unreleased]
+
+### Added
+- Initial release of prisma-searchparams-mapper
+- Type-safe Prisma integration with generic types
+  - `TWhereInput` for filters (e.g., `Prisma.UserWhereInput`)
+  - `TOrderByInput` for sorting (e.g., `Prisma.UserOrderByWithRelationInput`)
+  - Type-safe `searchFields` with field name validation
+- Bidirectional parsing
   - `parseSearchParams()` - URLSearchParams → Prisma query
   - `toSearchParams()` - Prisma query → URLSearchParams
-  
-- **Support complet des opérateurs Prisma**:
-  - `in` - Valeurs multiples
-  - `gte` / `lte` / `gt` / `lt` - Comparaisons numériques
-  - `contains` / `startsWith` / `endsWith` - Recherche de texte
-  
-- **Recherche globale (Global Search)**:
-  - `?search=` ou `?q=` - Recherche sur plusieurs champs avec OR
-  - `searchFields` - Configuration des champs de recherche
-  - `searchMode: 'insensitive'` - Recherche insensible à la casse
-  - Combinaison automatique avec les autres filtres (AND logic)
-  
-- **Tri et pagination**:
-  - `?order=field_asc` ou `?order=field_desc`
-  - **Page-based** : `?page=2&pageSize=20` (pagination classique)
-  - **Offset-based** : `?skip=20&take=10` (infinite scroll)
-  - Détection automatique du mode selon les paramètres
-  - `skip/take` prioritaires sur `page/pageSize`
-  
-- **Relations imbriquées**:
-  - `parseNestedRelations()` - Support de la notation point (ex: `user.name=John`)
-  - `mergeRelations()` - Fusion des relations dans les filtres
-  
-- **Parser réutilisable**:
-  - `createParser<TWhereInput, TOrderByInput>()` - Créer des parsers type-safe par modèle
+- Complete Prisma operators support
+  - Comparison: `in`, `notIn`, `not`, `gte`, `lte`, `gt`, `lt`
+  - String: `contains`, `startsWith`, `endsWith`
+  - Case-insensitive mode for string operators
+- Global search functionality
+  - `?search=` or `?q=` - Search across multiple fields with OR logic
+  - `searchFields` - Configure searchable fields
+  - `searchMode: 'insensitive'` - Case-insensitive search
+  - Automatic combination with other filters (AND logic)
+- Sorting and pagination
+  - **Page-based**: `?page=2&pageSize=20` (classic pagination)
+  - **Offset-based**: `?skip=20&take=10` (infinite scroll)
+  - Automatic mode detection based on parameters
+  - `skip/take` takes priority over `page/pageSize`
+- Custom keys
+  - `searchKey` - Customize global search key (default: `'search'`, also accepts `'q'` as alias)
+  - `orderKey` - Customize sorting key (default: `'order'`)
+- Nested relations
+  - `parseNestedRelations()` - Support for dot notation (e.g., `user.name=John`)
+  - `mergeRelations()` - Merge relations into filters
+- Context merging
+  - `mergeWhere()` - Merge contextual where clause (tenant, user filters, etc.)
+  - `mergeQuery()` - Merge contextual query (where + orderBy + pagination)
+  - Contextual where takes priority for security (prevents URL override)
+  - User orderBy takes priority for UX (user can override default sort)
+- Type-safe parser factory
+  - `createParser<TWhereInput, TOrderByInput>()` - Create reusable type-safe parsers
+- Edge case handling
+  - Invalid/negative page numbers → defaults to page 1
+  - Invalid/zero take values → defaults to pageSize
+  - Empty search values → ignored
+  - Special characters → properly decoded
+  - Multiple operators on same field → merged correctly
+- Comprehensive test suite
+  - 100+ tests covering all features
+  - Edge cases and error scenarios
+  - Type safety validation
 
-### 📚 Documentation
+### Documentation
+- Complete README with examples
+- Detailed USAGE guide with framework examples (Next.js, TanStack Router, Express)
+- AI_USAGE guide for AI assistants and LLMs
+- TypeScript examples with Prisma types
+- Contributing guidelines
+- MIT License
 
-- README complet avec exemples
-- USAGE.md avec guide détaillé pour Next.js, Remix, Express
-- Exemples type-safe avec Prisma
-- Guide de sécurité et bonnes pratiques
-
-### 🧪 Tests
-
-- Suite de tests complète avec Vitest
-- Tests pour tous les opérateurs
-- Tests de type safety
-
-### 🔧 Configuration
-
+### Technical
+- Zero dependencies (peer: @prisma/client >= 4.0.0, optional)
 - TypeScript strict mode
-- Support ESM/CommonJS
-- Exports configurés pour compatibilité maximale
-- **Pas de dépendance Prisma** : Utilise des types génériques pour éviter les conflits de versions
-- Peer dependency optionnelle sur `@prisma/client` >= 4.0.0
+- ESM/CommonJS support
+- Biome for linting and formatting
+- Husky + lint-staged for pre-commit hooks
+- Vitest for testing
 
-### 📐 Architecture des types
+## [0.1.0] - Not yet released
 
-- Types génériques qui s'adaptent à votre version de Prisma
-- Fonctionne avec ou sans Prisma
-- Pas de conflit de versions
-- Package léger sans dépendances lourdes
-- Voir [TYPES.md](./TYPES.md) pour plus de détails
+Initial development version.

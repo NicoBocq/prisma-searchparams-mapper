@@ -270,6 +270,94 @@ app.get('/api/users', async (req, res) => {
 app.listen(3000);
 ```
 
+### Next.js with nuqs (Client + Server)
+
+Combine nuqs for client-side state management with prisma-searchparams-mapper for server-side parsing:
+
+```typescript
+// app/users/page.tsx
+import { parseSearchParams } from 'prisma-searchparams-mapper';
+import { Prisma, prisma } from '@/lib/prisma';
+import { UsersFilters } from './filters';
+
+type SearchParams = { [key: string]: string | string[] | undefined };
+
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (value) {
+      params.set(key, Array.isArray(value) ? value.join(',') : value);
+    }
+  });
+
+  // Server-side: Parse for Prisma
+  const query = parseSearchParams<
+    Prisma.UserWhereInput,
+    Prisma.UserOrderByWithRelationInput
+  >(params, {
+    searchFields: ['name', 'email'],
+    searchMode: 'insensitive',
+  });
+
+  const users = await prisma.user.findMany(query);
+
+  return (
+    <div>
+      <UsersFilters />
+      <UsersList users={users} />
+    </div>
+  );
+}
+```
+
+```typescript
+// app/users/filters.tsx
+'use client';
+
+import { useQueryStates, parseAsString, parseAsInteger } from 'nuqs';
+
+export function UsersFilters() {
+  // Client-side: Manage filter state with nuqs
+  const [filters, setFilters] = useQueryStates({
+    search: parseAsString.withDefault(''),
+    status: parseAsString.withDefault('ACTIVE'),
+    role: parseAsString,
+    page: parseAsInteger.withDefault(1),
+  });
+
+  return (
+    <div>
+      <input
+        value={filters.search}
+        onChange={(e) => setFilters({ search: e.target.value })}
+        placeholder="Search users..."
+      />
+      
+      <select
+        value={filters.status}
+        onChange={(e) => setFilters({ status: e.target.value })}
+      >
+        <option value="ACTIVE">Active</option>
+        <option value="INACTIVE">Inactive</option>
+      </select>
+
+      <button onClick={() => setFilters({ page: filters.page + 1 })}>
+        Next Page
+      </button>
+    </div>
+  );
+}
+```
+
+**Benefits of combining both:**
+- ✅ **nuqs**: Type-safe client state, URL sync, easy form handling
+- ✅ **prisma-searchparams-mapper**: Server-side Prisma query generation
+- ✅ **Seamless**: URL params flow from client (nuqs) → server (prisma-searchparams-mapper) → Prisma
+
 ## Advanced Patterns
 
 ### Combined Filters
@@ -394,6 +482,45 @@ const posts = await prisma.post.findMany({
   include: { author: true },
 });
 ```
+
+### Contextual Where (Tenant, User Filters)
+
+Merge contextual filters (tenant ID, user ID, etc.) with search params:
+
+```typescript
+import { parseSearchParams, mergeWhere } from 'prisma-searchparams-mapper';
+import { Prisma, prisma } from '@/lib/prisma';
+
+// Get current user/tenant from session
+const currentUserId = 'user-123';
+const currentTenantId = 'tenant-456';
+
+// Parse search params
+const query = parseSearchParams<
+  Prisma.PostWhereInput,
+  Prisma.PostOrderByWithRelationInput
+>('?status=published&search=prisma', {
+  searchFields: ['title', 'content'],
+});
+
+// Merge with contextual filters
+const contextualWhere = {
+  tenantId: currentTenantId,
+  authorId: currentUserId,
+};
+
+const finalQuery = mergeWhere(contextualWhere, query);
+
+// Query with both user filters and search params
+const posts = await prisma.post.findMany(finalQuery);
+// WHERE tenantId = 'tenant-456' AND authorId = 'user-123' AND status = 'published' AND ...
+```
+
+**Use cases:**
+- Multi-tenant applications (filter by tenant)
+- User-specific data (filter by user ID)
+- Organization filters
+- Any contextual filtering that should always apply
 
 ### Reverse Conversion (Prisma → URL)
 

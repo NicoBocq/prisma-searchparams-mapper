@@ -1,53 +1,52 @@
 # Contributing to prisma-searchparams-mapper
 
-Merci de votre intérêt pour contribuer ! 🎉
+Thank you for your interest in contributing! 🎉
 
 ## 🏗️ Architecture
 
-### Principe de base : Pas de dépendance Prisma
+### Core Principle: No Prisma Dependency
 
-**Important** : Cette bibliothèque n'installe PAS `@prisma/client` comme dépendance.
+**Important**: This library does NOT install `@prisma/client` as a dependency.
 
-**Pourquoi ?**
-- Éviter les conflits de versions avec le Prisma de l'utilisateur
-- Garder le package léger
-- Permettre l'utilisation sans Prisma
+**Why?**
+- Avoid version conflicts with user's Prisma installation
+- Keep the package lightweight
+- Allow usage without Prisma
 
-**Comment ?**
-- Utilisation de **types génériques** qui s'adaptent aux types Prisma de l'utilisateur
-- Peer dependency **optionnelle** sur `@prisma/client`
+**How?**
+- Uses **generic types** that adapt to user's Prisma types
+- **Optional** peer dependency on `@prisma/client`
 
-### Structure du code
+### Code Structure
 
 ```
 src/
-  index.ts          # Code principal avec types génériques
-  index.test.ts     # Tests avec Vitest
+  index.ts          # Main code with generic types
+  index.test.ts     # Tests with Vitest
 
 examples/
-  examples.ts                  # Exemples basiques
-  examples-typesafe.ts         # Exemples avec types Prisma
-  examples-nextjs-search.tsx   # Exemple Next.js complet
+  examples.ts                  # Basic examples
+  examples-typesafe.ts         # Examples with Prisma types
 
 docs/
-  README.md         # Documentation principale
-  USAGE.md          # Guide détaillé
-  FEATURES.md       # Liste des fonctionnalités
-  TYPES.md          # Architecture des types
-  QUICK-START.md    # Guide rapide
+  README.md         # Main documentation
+  USAGE.md          # Detailed guide
+  AI_USAGE.md       # Guide for AI assistants
+  CHANGELOG.md      # Version history
+  CONTRIBUTING.md   # This file
 ```
 
 ## 🚀 Setup
 
 ```bash
-# Cloner le repo
+# Clone the repo
 git clone https://github.com/yourusername/prisma-searchparams-mapper.git
 cd prisma-searchparams-mapper
 
-# Installer les dépendances
+# Install dependencies
 pnpm install
 
-# Lancer les tests
+# Run tests
 pnpm test
 
 # Build
@@ -56,26 +55,26 @@ pnpm build
 
 ## 🧪 Tests
 
-Tous les tests doivent passer avant de soumettre une PR :
+All tests must pass before submitting a PR:
 
 ```bash
-# Lancer les tests
+# Run tests
 pnpm test
 
-# Tests en mode watch
+# Watch mode
 pnpm test:watch
 
-# Build pour vérifier la compilation
+# Build to verify compilation
 pnpm build
 ```
 
-## 📝 Ajouter une fonctionnalité
+## 📝 Adding a Feature
 
-### 1. Écrire les tests d'abord
+### 1. Write tests first
 
 ```typescript
 // src/index.test.ts
-describe('Ma nouvelle fonctionnalité', () => {
+describe('My new feature', () => {
   it('should do something', () => {
     const result = parseSearchParams('?param=value');
     expect(result.where).toEqual({ param: 'value' });
@@ -83,7 +82,7 @@ describe('Ma nouvelle fonctionnalité', () => {
 });
 ```
 
-### 2. Implémenter la fonctionnalité
+### 2. Implement the feature
 
 ```typescript
 // src/index.ts
@@ -91,128 +90,128 @@ export function parseSearchParams<TWhereInput, TOrderByInput>(
   input: string | URLSearchParams,
   options?: ParseOptions
 ): PrismaQuery<TWhereInput, TOrderByInput> {
-  // Votre code ici
+  // Your code here
 }
 ```
 
-### 3. Mettre à jour la documentation
+### 3. Update documentation
 
-- `README.md` - Ajouter un exemple
-- `FEATURES.md` - Documenter la fonctionnalité
-- `CHANGELOG.md` - Ajouter l'entrée
+- `README.md` - Add an example
+- `USAGE.md` - Add detailed guide (if needed)
+- `CHANGELOG.md` - Add entry
 
-### 4. Vérifier les types
+### 4. Verify types
 
 ```bash
-# Vérifier que TypeScript compile
+# Check TypeScript compilation
 pnpm build
 
-# Pas d'erreurs de types
+# No type errors
 ```
 
 ## 🎯 Guidelines
 
-### Types génériques
+### Generic Types
 
-**À FAIRE** ✅
+**DO** ✅
 ```typescript
 export function myFunction<TWhereInput = PrismaWhere>(
   input: string
 ): PrismaQuery<TWhereInput> {
-  // Utilise des types génériques
+  // Uses generic types
 }
 ```
 
-**À NE PAS FAIRE** ❌
+**DON'T** ❌
 ```typescript
-import { Prisma } from '@prisma/client'; // ❌ N'importe pas Prisma !
+import { Prisma } from '@prisma/client'; // ❌ Don't import Prisma!
 
 export function myFunction(
   input: string
-): Prisma.UserWhereInput { // ❌ Type spécifique
+): Prisma.UserWhereInput { // ❌ Specific type
   // ...
 }
 ```
 
-### Dépendances
+### Dependencies
 
-**À FAIRE** ✅
-- Utiliser uniquement les dépendances dev pour les tests
-- Garder le package léger
+**DO** ✅
+- Use dev dependencies for tests only
+- Keep the package lightweight
 
-**À NE PAS FAIRE** ❌
-- Ajouter `@prisma/client` dans `dependencies`
-- Ajouter des dépendances lourdes
+**DON'T** ❌
+- Add `@prisma/client` to `dependencies`
+- Add heavy dependencies
 
 ### Tests
 
-**À FAIRE** ✅
+**DO** ✅
 ```typescript
-// Tester avec types génériques
+// Test with generic types
 const result = parseSearchParams('?status=active');
 expect(result.where).toEqual({ status: 'active' });
 
-// Tester avec types mock Prisma
+// Test with mock Prisma types
 type MockWhereInput = { status?: string };
 const result2 = parseSearchParams<MockWhereInput>('?status=active');
 ```
 
-**À NE PAS FAIRE** ❌
+**DON'T** ❌
 ```typescript
-// Ne pas importer @prisma/client dans les tests
+// Don't import @prisma/client in tests
 import { Prisma } from '@prisma/client'; // ❌
 ```
 
 ## 📚 Documentation
 
-Chaque nouvelle fonctionnalité doit être documentée dans :
+Each new feature must be documented in:
 
-1. **README.md** - Exemple d'utilisation
-2. **USAGE.md** - Guide pratique (si nécessaire)
-3. **CHANGELOG.md** - Entrée de version
+1. **README.md** - Usage example
+2. **USAGE.md** - Practical guide (if needed)
+3. **CHANGELOG.md** - Version entry
 
-## 🔄 Process de PR
+## 🔄 PR Process
 
-1. Fork le repo
-2. Créer une branche : `git checkout -b feature/ma-fonctionnalite`
-3. Écrire les tests
-4. Implémenter la fonctionnalité
-5. Mettre à jour la documentation
-6. Vérifier que tout passe : `pnpm test && pnpm build`
-7. Commit : `git commit -m "feat: ajouter ma fonctionnalité"`
-8. Push : `git push origin feature/ma-fonctionnalite`
-9. Créer une Pull Request
+1. Fork the repo
+2. Create a branch: `git checkout -b feature/my-feature`
+3. Write tests
+4. Implement the feature
+5. Update documentation
+6. Verify everything passes: `pnpm test && pnpm build`
+7. Commit: `git commit -m "feat: add my feature"`
+8. Push: `git push origin feature/my-feature`
+9. Create a Pull Request
 
-## 🐛 Reporter un bug
+## 🐛 Reporting a Bug
 
-Ouvrir une issue avec :
+Open an issue with:
 
-1. **Description** du bug
-2. **Étapes pour reproduire**
-3. **Comportement attendu**
-4. **Comportement actuel**
-5. **Version** de la bibliothèque
-6. **Version** de Prisma (si applicable)
+1. **Description** of the bug
+2. **Steps to reproduce**
+3. **Expected behavior**
+4. **Actual behavior**
+5. Library **version**
+6. Prisma **version** (if applicable)
 
-## 💡 Proposer une fonctionnalité
+## 💡 Proposing a Feature
 
-Ouvrir une issue avec :
+Open an issue with:
 
-1. **Description** de la fonctionnalité
-2. **Cas d'usage**
-3. **Exemple** d'API proposée
-4. **Alternatives** considérées
+1. **Description** of the feature
+2. **Use cases**
+3. **API example**
+4. **Alternatives** considered
 
-## 📋 Checklist PR
+## 📋 PR Checklist
 
-- [ ] Tests ajoutés et passent
-- [ ] Build réussit (`pnpm build`)
-- [ ] Documentation mise à jour
-- [ ] CHANGELOG.md mis à jour
-- [ ] Pas de dépendance Prisma ajoutée
-- [ ] Types génériques utilisés correctement
-- [ ] Exemples ajoutés si nécessaire
+- [ ] Tests added and passing
+- [ ] Build succeeds (`pnpm build`)
+- [ ] Documentation updated
+- [ ] CHANGELOG.md updated
+- [ ] No Prisma dependency added
+- [ ] Generic types used correctly
+- [ ] Examples added if needed
 
-## 🙏 Merci !
+## 🙏 Thank You!
 
-Merci de contribuer à rendre cette bibliothèque meilleure ! 🚀
+Thank you for contributing to make this library better! 🚀

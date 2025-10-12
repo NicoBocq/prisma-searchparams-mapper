@@ -1,7 +1,7 @@
 {
   "name": "prisma-searchparams-mapper",
   "version": "0.1.0",
-  "description": "Convert URLSearchParams <-> Prisma queries (where, orderBy, pagination) for Next.js / Remix apps.",
+  "description": "Stop writing boilerplate! Convert URL search params to Prisma queries in one line. Type-safe, framework-agnostic, perfect for Next.js/TanStack Router.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -21,7 +21,11 @@
     "test:watch": "vitest",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "prepublishOnly": "pnpm test && pnpm build",
+    "release:patch": "npm version patch -m 'chore: release v%s'",
+    "release:minor": "npm version minor -m 'chore: release v%s'",
+    "release:major": "npm version major -m 'chore: release v%s'"
   },
   "lint-staged": {
     "*.{ts,js,json}": [
@@ -33,9 +37,23 @@
     "searchparams",
     "query",
     "nextjs",
-    "remix",
+    "tanstack-router",
     "typescript",
-    "mapper"
+    "mapper",
+    "url-params",
+    "query-string",
+    "filter",
+    "pagination",
+    "prisma-helper",
+    "prisma-utils",
+    "search-filters",
+    "nuqs",
+    "server-components",
+    "api-routes",
+    "rest-api",
+    "express",
+    "fastify",
+    "multi-tenant"
   ],
   "author": "Nicolas Bocquet",
   "license": "MIT",
@@ -49,10 +67,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
-    "@prisma/client": "^5.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.4",
-    "prisma": "^5.0.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.1"
   }

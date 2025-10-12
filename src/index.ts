@@ -28,6 +28,8 @@ export interface ParseOptions<TWhereInput = PrismaWhere> {
   searchMode?: SearchMode
   searchFields?: (keyof TWhereInput | string)[]
   logicalOperator?: LogicalOperator
+  searchKey?: string // Default: 'search' (also accepts 'q' as alias)
+  orderKey?: string // Default: 'order'
 }
 
 export function parseSearchParams<
@@ -52,13 +54,16 @@ export function parseSearchParams<
   let searchValue: string | undefined
   const searchMode = options.searchMode || 'default'
   const logicalOp = options.logicalOperator
+  const searchKey = options.searchKey || 'search'
+  const orderKey = options.orderKey || 'order'
 
   // First pass: check for offset-based params (priority)
   if (params.has('skip')) {
     skip = Number(params.get('skip')) || 0
   }
   if (params.has('take')) {
-    take = Number(params.get('take')) || pageSize
+    const takeNum = Number(params.get('take'))
+    take = takeNum > 0 ? takeNum : pageSize // take must be > 0
   }
 
   // Second pass: handle page-based if offset not set
@@ -68,7 +73,8 @@ export function parseSearchParams<
       pageSize = Number(params.get('pageSize')) || pageSize
     }
 
-    const page = Number(params.get('page')) || 1
+    const pageNum = Number(params.get('page'))
+    const page = pageNum > 0 ? pageNum : 1 // page must be >= 1
     skip = (page - 1) * pageSize
     if (take === undefined) {
       take = pageSize
@@ -87,22 +93,22 @@ export function parseSearchParams<
       return
     }
 
-    // Global search parameter
-    if (key === 'search' || key === 'q') {
+    // Global search parameter (custom key or default 'search'/'q')
+    if (key === searchKey || (searchKey === 'search' && key === 'q')) {
       searchValue = value
       return
     }
 
-    // order
-    if (key === 'order') {
+    // order (custom key or default 'order')
+    if (key === orderKey) {
       const [field, dir] = value.split('_')
       orderBy[field] = dir === 'desc' ? 'desc' : 'asc'
       return
     }
 
-    // operators: _in, _gte, _lte, _contains, _startsWith, _endsWith
+    // operators: _in, _notIn, _not, _gte, _lte, _contains, _startsWith, _endsWith
     const operatorMatch = key.match(
-      /(.+?)_(in|gte|lte|gt|lt|contains|startsWith|endsWith)$/,
+      /(.+?)_(in|notIn|not|gte|lte|gt|lt|contains|startsWith|endsWith)$/,
     )
     if (operatorMatch) {
       const [, field, op] = operatorMatch
@@ -110,7 +116,8 @@ export function parseSearchParams<
         ? value.split(',').map(normalizeValue)
         : [normalizeValue(value)]
 
-      const operatorValue = op === 'in' ? vals : vals[0]
+      // in and notIn use array, others use single value
+      const operatorValue = ['in', 'notIn'].includes(op) ? vals : vals[0]
       const condition: any = { [op]: operatorValue }
 
       // Add mode for string operations
@@ -325,5 +332,52 @@ export function createParser<
       parseNestedRelations(input),
     mergeRelations: (where: TWhereInput, relations: Record<string, any>) =>
       mergeRelations<TWhereInput>(where, relations),
+  }
+}
+
+/**
+ * Merge contextual where clause with parsed query
+ * Useful for adding tenant filters, user filters, etc.
+ *
+ * Note: contextualWhere takes priority over parsedQuery.where for security
+ * (prevents users from overriding tenant/user filters via URL)
+ */
+export function mergeWhere<TWhereInput = PrismaWhere>(
+  contextualWhere: Partial<TWhereInput>,
+  parsedQuery: PrismaQuery<TWhereInput, any>,
+): PrismaQuery<TWhereInput, any> {
+  return {
+    ...parsedQuery,
+    where: {
+      ...parsedQuery.where,
+      ...contextualWhere, // contextualWhere has priority
+    } as TWhereInput,
+  }
+}
+
+/**
+ * Merge contextual query (where + orderBy) with parsed query
+ * Useful for adding default filters and sorting
+ *
+ * Priority:
+ * - where: contextualQuery takes priority (security)
+ * - orderBy: parsedQuery takes priority (user choice)
+ */
+export function mergeQuery<
+  TWhereInput = PrismaWhere,
+  TOrderByInput = Record<string, 'asc' | 'desc'>,
+>(
+  contextualQuery: Partial<PrismaQuery<TWhereInput, TOrderByInput>>,
+  parsedQuery: PrismaQuery<TWhereInput, TOrderByInput>,
+): PrismaQuery<TWhereInput, TOrderByInput> {
+  return {
+    ...contextualQuery,
+    ...parsedQuery,
+    where: {
+      ...parsedQuery.where,
+      ...contextualQuery.where, // contextualQuery.where has priority
+    } as TWhereInput,
+    // parsedQuery.orderBy has priority (user can override default sort)
+    orderBy: parsedQuery.orderBy || contextualQuery.orderBy,
   }
 }

@@ -94,3 +94,27 @@ console.log(JSON.stringify(query13, null, 2))
 console.log('\nExample 14: skip/take priority')
 const query14 = parseSearchParams('?page=2&skip=15&take=10')
 console.log(JSON.stringify(query14, null, 2))
+
+// Example 15: Custom search and order keys
+console.log('\nExample 15: Custom keys')
+const query15 = parseSearchParams('?q=john&sort=name_asc', {
+  searchFields: ['name', 'email'],
+  searchKey: 'q',
+  orderKey: 'sort',
+})
+console.log(JSON.stringify(query15, null, 2))
+
+// Example 16: Merge contextual where (tenant, user filters)
+console.log('\nExample 16: Merge contextual where')
+
+import { mergeWhere } from './src/index'
+
+const contextualWhere = { tenantId: 'tenant-123', userId: 'user-456' }
+const query16 = parseSearchParams('?status=active&role=admin')
+const merged = mergeWhere(contextualWhere, query16)
+console.log(JSON.stringify(merged, null, 2))
+
+// Example 17: not and notIn operators
+console.log('\nExample 17: not and notIn operators')
+const query17 = parseSearchParams('?status_not=deleted&role_notIn=guest,banned')
+console.log(JSON.stringify(query17, null, 2))

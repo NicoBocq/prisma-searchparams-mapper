@@ -3,9 +3,44 @@
 [![npm version](https://img.shields.io/npm/v/prisma-searchparams-mapper.svg?color=blue)](https://www.npmjs.com/package/prisma-searchparams-mapper)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![typescript](https://img.shields.io/badge/written%20in-TypeScript-blue)](tsconfig.json)
+[![AI friendly](https://img.shields.io/badge/AI-friendly-purple)](AI_USAGE.md)
 
 Convert your **URLSearchParams** ↔ **Prisma queries** (`where`, `orderBy`, pagination) —  
 perfect for **Next.js**, **Remix**, or any app bridging the client’s query string with Prisma filters.
+
+---
+
+## Why prisma-searchparams-mapper?
+
+**Stop writing boilerplate!** Turn 50+ lines of manual URL parsing into a single line.
+
+### Before (Manual parsing 😫)
+```typescript
+const where: Prisma.UserWhereInput = {};
+if (searchParams.status) where.status = searchParams.status;
+if (searchParams.age_gte) where.age = { ...where.age, gte: Number(searchParams.age_gte) };
+if (searchParams.age_lte) where.age = { ...where.age, lte: Number(searchParams.age_lte) };
+if (searchParams.role) {
+  where.role = searchParams.role.includes(',') 
+    ? { in: searchParams.role.split(',') }
+    : searchParams.role;
+}
+// ... 40+ more lines for all operators, pagination, sorting, etc.
+```
+
+### After (One line 🎉)
+```typescript
+const query = parseSearchParams<Prisma.UserWhereInput>(searchParams);
+const users = await prisma.user.findMany(query);
+```
+
+### Perfect for
+
+- 🔍 **Search pages** with filters and sorting
+- 📊 **Admin dashboards** with complex queries
+- 🏢 **Multi-tenant apps** (built-in context merging)
+- ♾️ **Infinite scroll** (offset-based pagination)
+- 🎨 **Data tables** with dynamic filtering
 
 ---
 
@@ -17,6 +52,8 @@ perfect for **Next.js**, **Remix**, or any app bridging the client’s query str
   Works with your Prisma models’ typings.
 - 🧩 **Platform-agnostic**:  
   Works with Next.js, TanStack Router, Express, Fastify, or any Node.js framework.
+- 🔗 **Plays well with others**:  
+  Combine with nuqs for client-side state management.
 - 🧠 **Simple, predictable syntax**:  
   `?status=active&role_in=admin,user&order=createdAt_desc&page=2`
 - 🔍 **Global search**:  
@@ -128,8 +165,19 @@ const query2 = parseSearchParams('?q=john', {
   searchFields: ['name', 'email'],
 });
 
+// Custom search key
+const query3 = parseSearchParams('?query=john', {
+  searchFields: ['name', 'email'],
+  searchKey: 'query',
+});
+
+// Custom order key
+const query4 = parseSearchParams('?sort=name_asc', {
+  orderKey: 'sort',
+});
+
 // Combine search with other filters
-const query3 = parseSearchParams('?status=active&search=john', {
+const query5 = parseSearchParams('?status=active&search=john', {
   searchFields: ['name', 'email'],
 });
 // Automatically combines with AND logic
@@ -278,6 +326,8 @@ Converts URL search parameters to a Prisma query object.
   - `searchMode` - Search mode: `'default'` or `'insensitive'` (case-insensitive)
   - `searchFields` - Array of field names for global search (type-safe with Prisma types)
   - `logicalOperator` - Logical operator: `'AND'` or `'OR'` for combining conditions
+  - `searchKey` - Custom key for global search (default: `'search'`, also accepts `'q'` as alias)
+  - `orderKey` - Custom key for sorting (default: `'order'`)
 
 **Type-safe searchFields:**
 ```typescript
@@ -314,6 +364,48 @@ Example: `?user.name=John&post.title_contains=hello`
 ### `mergeRelations<TWhereInput>(where: TWhereInput, relations: Record<string, any>): TWhereInput`
 
 Merges nested relations into an existing where clause.
+
+### `mergeWhere<TWhereInput>(contextualWhere: Partial<TWhereInput>, parsedQuery: PrismaQuery<TWhereInput>): PrismaQuery<TWhereInput>`
+
+Merges contextual where clause (tenant filters, user filters, etc.) with parsed query.
+
+**Priority**: `contextualWhere` takes priority (security - prevents URL override)
+
+**Example:**
+```typescript
+// Add tenant/user context to search params
+const contextualWhere = { tenantId: 'tenant-123', userId: 'user-456' };
+const query = parseSearchParams('?status=active&role=admin');
+const merged = mergeWhere(contextualWhere, query);
+
+// Use with Prisma
+const users = await prisma.user.findMany(merged);
+// WHERE tenantId = 'tenant-123' AND userId = 'user-456' AND status = 'active' AND role = 'admin'
+```
+
+### `mergeQuery<TWhereInput, TOrderByInput>(contextualQuery: Partial<PrismaQuery>, parsedQuery: PrismaQuery): PrismaQuery`
+
+Merges contextual query (where + orderBy + pagination) with parsed query.
+
+**Priority**:
+- `where`: contextualQuery takes priority (security)
+- `orderBy`: parsedQuery takes priority (user choice)
+- `skip/take`: parsedQuery takes priority
+
+**Example:**
+```typescript
+// Set default filters and sorting
+const contextualQuery = {
+  where: { tenantId: 'tenant-123' },
+  orderBy: { createdAt: 'desc' }, // default sort
+};
+
+const query = parseSearchParams('?status=active&order=name_asc');
+const merged = mergeQuery(contextualQuery, query);
+
+// User can override orderBy but not tenantId
+// WHERE tenantId = 'tenant-123' AND status = 'active' ORDER BY name ASC
+```
 
 ### `createParser<TWhereInput, TOrderByInput>()`
 
@@ -402,9 +494,23 @@ Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for 
 
 ---
 
+## 📊 Comparison
+
+| Feature | Manual parsing | This library |
+|---------|---------------|--------------|
+| Lines of code | 50+ | 1 |
+| Type-safe | ❌ | ✅ |
+| Edge cases handled | ❌ | ✅ |
+| Bidirectional (URL ↔ Prisma) | ❌ | ✅ |
+| Multi-tenant support | ❌ | ✅ |
+| Framework-agnostic | ❌ | ✅ |
+| Bundle size | N/A | < 5kb |
+| Tests | ❌ | 100+ |
+
 ## 🔗 Links
 
 - [npm package](https://www.npmjs.com/package/prisma-searchparams-mapper)
 - [GitHub repository](https://github.com/yourusername/prisma-searchparams-mapper)
 - [USAGE.md](./USAGE.md) - Detailed guide with Prisma examples
 - [CHANGELOG.md](./CHANGELOG.md) - Version history
+- [AI_USAGE.md](./AI_USAGE.md) - Guide for AI assistants
