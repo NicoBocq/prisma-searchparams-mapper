@@ -24,6 +24,21 @@ describe('parseSearchParams', () => {
     expect(result.where).toEqual({ status: 'active', role: 'admin' })
   })
 
+  it('should accept object input (Next.js searchParams)', () => {
+    const result = parseSearchParams({ status: 'active', role: 'admin' })
+    expect(result.where).toEqual({ status: 'active', role: 'admin' })
+  })
+
+  it('should handle array values in object input', () => {
+    const result = parseSearchParams({ role: ['admin', 'user'] })
+    expect(result.where).toEqual({ role: { in: ['admin', 'user'] } })
+  })
+
+  it('should handle undefined values in object input', () => {
+    const result = parseSearchParams({ status: 'active', role: undefined })
+    expect(result.where).toEqual({ status: 'active' })
+  })
+
   it('should parse boolean values', () => {
     const result = parseSearchParams('?isActive=true&isDeleted=false')
     expect(result.where).toEqual({ isActive: true, isDeleted: false })

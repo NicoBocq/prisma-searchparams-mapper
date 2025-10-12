@@ -29,9 +29,9 @@ const users = await prisma.user.findMany(query);
 ### Next.js App Router
 ```typescript
 export default async function UsersPage({ searchParams }) {
-  const query = parseSearchParams<Prisma.UserWhereInput>(
-    new URLSearchParams(Object.entries(searchParams))
-  );
+  const params = await searchParams;
+  // ✨ Direct object support!
+  const query = parseSearchParams<Prisma.UserWhereInput>(params);
   const users = await prisma.user.findMany(query);
   return <UsersList users={users} />;
 }
@@ -40,7 +40,9 @@ export default async function UsersPage({ searchParams }) {
 ### TanStack Router
 ```typescript
 export const Route = createFileRoute('/users')({
+  loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
+    // ✨ Direct object support!
     const query = parseSearchParams<Prisma.UserWhereInput>(deps);
     return prisma.user.findMany(query);
   },

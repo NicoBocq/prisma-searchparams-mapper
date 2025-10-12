@@ -64,6 +64,8 @@ const users = await prisma.user.findMany(query);
   Built-in support for case-insensitive search
 - 🔗 **Relations support**:  
   Handle nested Prisma relations with dot notation (`user.name=John`)
+- ✨ **Multiple input formats**:  
+  Accepts strings, URLSearchParams, or plain objects (Next.js searchParams, TanStack Router deps)
 
 ---
 
@@ -94,6 +96,24 @@ const prismaQuery = parseSearchParams(searchParams);
 
 // Use with Prisma
 const users = await prisma.user.findMany(prismaQuery);
+```
+
+### Multiple Input Formats
+
+The library accepts three input formats for maximum flexibility:
+
+```typescript
+// 1. String (query string)
+parseSearchParams('?status=active&role=admin');
+parseSearchParams('status=active&role=admin'); // '?' is optional
+
+// 2. URLSearchParams object
+const params = new URLSearchParams('?status=active');
+parseSearchParams(params);
+
+// 3. Plain object (Next.js searchParams, TanStack Router deps)
+parseSearchParams({ status: 'active', role: 'admin' });
+parseSearchParams({ role: ['admin', 'user'] }); // Arrays supported
 ```
 
 ### Type-Safe Usage with Prisma
@@ -246,18 +266,16 @@ import { Prisma, prisma } from '@/lib/prisma';
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: <Promise>{ [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const params = new URLSearchParams();
-  Object.entries(searchParams).forEach(([key, value]) => {
-    if (value) params.set(key, Array.isArray(value) ? value.join(',') : value);
-  });
-
-  // Type-safe parsing with Prisma types
+  const params = await searchParams;
+  
+  // ✨ Direct object support - no conversion needed!
   const query = parseSearchParams<
     Prisma.UserWhereInput,
     Prisma.UserOrderByWithRelationInput
   >(params);
+  
   const users = await prisma.user.findMany(query);
 
   return <div>{/* render users */}</div>;
@@ -275,12 +293,11 @@ import { Prisma, prisma } from '@/lib/prisma';
 export const Route = createFileRoute('/users')({
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
-    const params = new URLSearchParams(deps as any);
-    
+    // ✨ Direct object support - no conversion needed!
     const query = parseSearchParams<
       Prisma.UserWhereInput,
       Prisma.UserOrderByWithRelationInput
-    >(params, {
+    >(deps, {
       searchFields: ['name', 'email'],
       searchMode: 'insensitive',
     });
@@ -313,7 +330,7 @@ const query3 = parseSearchParams('?page=2&pageSize=50');
 
 ## 📖 API Reference
 
-### `parseSearchParams<TWhereInput, TOrderByInput>(input: string | URLSearchParams, options?: ParseOptions): PrismaQuery<TWhereInput, TOrderByInput>`
+### `parseSearchParams<TWhereInput, TOrderByInput>(input: string | URLSearchParams | Record<string, string | string[] | undefined>, options?: ParseOptions): PrismaQuery<TWhereInput, TOrderByInput>`
 
 Converts URL search parameters to a Prisma query object.
 
@@ -322,7 +339,7 @@ Converts URL search parameters to a Prisma query object.
 - `TOrderByInput` - Prisma OrderByWithRelationInput type (e.g., `Prisma.UserOrderByWithRelationInput`)
 
 **Parameters:**
-- `input` - URL search params string or URLSearchParams object
+- `input` - URL search params as string, URLSearchParams, or plain object (e.g., Next.js searchParams)
 - `options` - Optional configuration
   - `pageSize` - Items per page (default: 10)
   - `searchMode` - Search mode: `'default'` or `'insensitive'` (case-insensitive)

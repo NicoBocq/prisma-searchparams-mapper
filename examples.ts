@@ -118,3 +118,26 @@ console.log(JSON.stringify(merged, null, 2))
 console.log('\nExample 17: not and notIn operators')
 const query17 = parseSearchParams('?status_not=deleted&role_notIn=guest,banned')
 console.log(JSON.stringify(query17, null, 2))
+
+// Example 18: Object input (Next.js searchParams)
+console.log('\nExample 18: Object input (Next.js)')
+const query18 = parseSearchParams({
+  status: 'active',
+  role: 'admin',
+  page: '2',
+})
+console.log(JSON.stringify(query18, null, 2))
+
+// Example 19: Object with array values
+console.log('\nExample 19: Object with arrays')
+const query19 = parseSearchParams({ role: ['admin', 'user'], status: 'active' })
+console.log(JSON.stringify(query19, null, 2))
+
+// Example 20: Object with undefined (filtered out)
+console.log('\nExample 20: Object with undefined')
+const query20 = parseSearchParams({
+  status: 'active',
+  role: undefined,
+  email: 'test@example.com',
+})
+console.log(JSON.stringify(query20, null, 2))

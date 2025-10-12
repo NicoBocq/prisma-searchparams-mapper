@@ -36,15 +36,30 @@ export function parseSearchParams<
   TWhereInput = PrismaWhere,
   TOrderByInput = Record<string, 'asc' | 'desc'>,
 >(
-  input: string | URLSearchParams,
+  input:
+    | string
+    | URLSearchParams
+    | Record<string, string | string[] | undefined>,
   options: ParseOptions<TWhereInput> = {},
 ): PrismaQuery<TWhereInput, TOrderByInput> {
-  const params =
-    typeof input === 'string'
-      ? new URLSearchParams(input.startsWith('?') ? input : '?' + input)
-      : input
+  let params: URLSearchParams
 
-  const where: any = {}
+  if (typeof input === 'string') {
+    params = new URLSearchParams(input.startsWith('?') ? input : '?' + input)
+  } else if (input instanceof URLSearchParams) {
+    params = input
+  } else {
+    // Convert object to URLSearchParams
+    params = new URLSearchParams()
+    Object.entries(input).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.set(key, Array.isArray(value) ? value.join(',') : String(value))
+      }
+    })
+  }
+
+  // Using Record for dynamic property access, will be cast to TWhereInput at the end
+  const where: Record<string, any> = {}
   const orderBy: Record<string, 'asc' | 'desc'> = {}
   let take: number | undefined
   let skip: number | undefined
@@ -276,12 +291,25 @@ export function toSearchParams<
  * Example: user.name=John -> { user: { name: 'John' } }
  */
 export function parseNestedRelations(
-  input: string | URLSearchParams,
+  input:
+    | string
+    | URLSearchParams
+    | Record<string, string | string[] | undefined>,
 ): Record<string, any> {
-  const params =
-    typeof input === 'string'
-      ? new URLSearchParams(input.startsWith('?') ? input : '?' + input)
-      : input
+  let params: URLSearchParams
+
+  if (typeof input === 'string') {
+    params = new URLSearchParams(input.startsWith('?') ? input : '?' + input)
+  } else if (input instanceof URLSearchParams) {
+    params = input
+  } else {
+    params = new URLSearchParams()
+    Object.entries(input).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.set(key, Array.isArray(value) ? value.join(',') : String(value))
+      }
+    })
+  }
 
   const result: Record<string, any> = {}
 
@@ -323,13 +351,20 @@ export function createParser<
 >() {
   return {
     parse: (
-      input: string | URLSearchParams,
+      input:
+        | string
+        | URLSearchParams
+        | Record<string, string | string[] | undefined>,
       options?: ParseOptions<TWhereInput>,
     ) => parseSearchParams<TWhereInput, TOrderByInput>(input, options),
     toParams: (query: Partial<PrismaQuery<TWhereInput, TOrderByInput>>) =>
       toSearchParams<TWhereInput, TOrderByInput>(query),
-    parseRelations: (input: string | URLSearchParams) =>
-      parseNestedRelations(input),
+    parseRelations: (
+      input:
+        | string
+        | URLSearchParams
+        | Record<string, string | string[] | undefined>,
+    ) => parseNestedRelations(input),
     mergeRelations: (where: TWhereInput, relations: Record<string, any>) =>
       mergeRelations<TWhereInput>(where, relations),
   }

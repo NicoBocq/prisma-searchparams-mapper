@@ -128,22 +128,15 @@ const posts = await prisma.post.findMany(postQuery);
 import { parseSearchParams } from 'prisma-searchparams-mapper';
 import { Prisma, prisma } from '@/lib/prisma';
 
-type SearchParams = { [key: string]: string | string[] | undefined };
-
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  // Convert searchParams to URLSearchParams
-  const params = new URLSearchParams();
-  Object.entries(searchParams).forEach(([key, value]) => {
-    if (value) {
-      params.set(key, Array.isArray(value) ? value.join(',') : value);
-    }
-  });
-
-  // Parse with full type safety
+  // Next.js 15: searchParams is now async
+  const params = await searchParams;
+  
+  // ✨ Direct object support - no conversion needed!
   const query = parseSearchParams<
     Prisma.UserWhereInput,
     Prisma.UserOrderByWithRelationInput
@@ -209,12 +202,11 @@ import { Prisma, prisma } from '@/lib/prisma';
 export const Route = createFileRoute('/users')({
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
-    const params = new URLSearchParams(deps as any);
-    
+    // ✨ Direct object support - no conversion needed!
     const query = parseSearchParams<
       Prisma.UserWhereInput,
       Prisma.UserOrderByWithRelationInput
-    >(params, {
+    >(deps, {
       searchFields: ['name', 'email'],
       searchMode: 'insensitive',
     });
@@ -280,21 +272,14 @@ import { parseSearchParams } from 'prisma-searchparams-mapper';
 import { Prisma, prisma } from '@/lib/prisma';
 import { UsersFilters } from './filters';
 
-type SearchParams = { [key: string]: string | string[] | undefined };
-
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const params = new URLSearchParams();
-  Object.entries(searchParams).forEach(([key, value]) => {
-    if (value) {
-      params.set(key, Array.isArray(value) ? value.join(',') : value);
-    }
-  });
-
-  // Server-side: Parse for Prisma
+  const params = await searchParams;
+  
+  // ✨ Direct object support - no conversion needed!
   const query = parseSearchParams<
     Prisma.UserWhereInput,
     Prisma.UserOrderByWithRelationInput

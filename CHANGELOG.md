@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-01-10
+
+### Added
+- **Direct object input support** - `parseSearchParams()` now accepts plain objects
+  - Perfect for Next.js `searchParams` (no conversion needed!)
+  - Works with TanStack Router `deps` directly
+  - Supports array values for multi-select filters
+  - Automatically filters out `undefined` values
+  - Three input formats: `string | URLSearchParams | Record<string, string | string[] | undefined>`
+- Updated all documentation examples to showcase direct object support
+- Added comprehensive tests for object input format
+
 ## [1.0.0] - 2025-01-10
 
 ### Added
