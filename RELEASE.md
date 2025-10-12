@@ -67,18 +67,23 @@ This will:
 git push && git push --tags
 ```
 
-### 5. Publish to npm
+### 5. Push to GitHub (triggers automation)
+
+```bash
+git push && git push --tags
+```
+
+This will automatically:
+- ✅ Create a GitHub Release (from CHANGELOG.md)
+- ✅ Publish to npm (after tests pass)
+
+**Note:** You need to configure `NPM_TOKEN` in GitHub Secrets for automatic npm publishing.
+
+### 6. Manual npm publish (if automation disabled)
 
 ```bash
 npm publish
 ```
-
-### 6. Create GitHub Release
-
-Go to GitHub → Releases → Create new release:
-- Tag: v0.2.0
-- Title: v0.2.0
-- Description: Copy from CHANGELOG.md
 
 ## Version Guidelines
 
