@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-01-10
+
+### Added
+- **Automatic nested relations** - Dot notation now works automatically in `parseSearchParams()`
+  - `?customer.name=John` → `{ customer: { name: 'John' } }`
+  - `?customer.email_contains=@example.com` → `{ customer: { email: { contains: '@example.com' } } }`
+  - Works with all operators (`_in`, `_gte`, `_contains`, etc.)
+  - Supports deeply nested relations (`user.profile.bio_contains=dev`)
+  - No need to use `parseNestedRelations()` + `mergeRelations()` separately anymore
+- **Flexible sorting syntax** - Support both underscore and colon separators for orderBy
+  - `?order=createdAt_desc` (underscore - original format)
+  - `?order=createdAt:desc` (colon - alternative format)
+  - Both formats work identically
+- Added comprehensive tests for nested relations and sorting formats
+
+### Fixed
+- **Nested operators merge** - Multiple operators on the same nested field are now correctly merged
+  - `?order.total_gte=100&order.total_lte=500` correctly generates `{ order: { total: { gte: 100, lte: 500 } } }`
+
 ## [1.1.0] - 2025-01-10
 
 ### Added

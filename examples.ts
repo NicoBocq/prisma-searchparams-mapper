@@ -141,3 +141,34 @@ const query20 = parseSearchParams({
   email: 'test@example.com',
 })
 console.log(JSON.stringify(query20, null, 2))
+
+// Example 21: Nested relations (automatic)
+console.log('\nExample 21: Nested relations (automatic)')
+const query21 = parseSearchParams(
+  '?customer.name=John&customer.email_contains=@example.com',
+)
+console.log(JSON.stringify(query21, null, 2))
+
+// Example 22: Deeply nested relations
+console.log('\nExample 22: Deeply nested relations')
+const query22 = parseSearchParams(
+  '?user.profile.bio_contains=developer&user.profile.age_gte=18',
+)
+console.log(JSON.stringify(query22, null, 2))
+
+// Example 23: Mixed nested and non-nested
+console.log('\nExample 23: Mixed nested and non-nested')
+const query23 = parseSearchParams(
+  '?status=active&order.total_gte=100&customer.name=John',
+)
+console.log(JSON.stringify(query23, null, 2))
+
+// Example 24: Sorting with colon separator
+console.log('\nExample 24: Sorting with colon separator')
+const query24 = parseSearchParams('?order=updatedAt:desc')
+console.log(JSON.stringify(query24, null, 2))
+
+// Example 25: Sorting with underscore separator (original)
+console.log('\nExample 25: Sorting with underscore separator')
+const query25 = parseSearchParams('?order=createdAt_asc')
+console.log(JSON.stringify(query25, null, 2))

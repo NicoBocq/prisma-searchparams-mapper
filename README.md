@@ -62,8 +62,8 @@ const users = await prisma.user.findMany(query);
   Search across multiple fields with `?search=john` or `?q=john`
 - 🔤 **Case-insensitive mode**:  
   Built-in support for case-insensitive search
-- 🔗 **Relations support**:  
-  Handle nested Prisma relations with dot notation (`user.name=John`)
+- 🔗 **Automatic nested relations**:  
+  Handle nested Prisma relations with dot notation (`customer.name=John`, `order.total_gte=100`)
 - ✨ **Multiple input formats**:  
   Accepts strings, URLSearchParams, or plain objects (Next.js searchParams, TanStack Router deps)
 
@@ -208,6 +208,10 @@ const query5 = parseSearchParams('?status=active&search=john', {
 ### Sorting & Pagination
 
 ```typescript
+// Sorting supports both underscore and colon separators
+const query0 = parseSearchParams('?order=createdAt_desc'); // underscore
+const query0b = parseSearchParams('?order=createdAt:desc'); // colon (both work!)
+
 // Page-based pagination (classic UI with page numbers)
 const query1 = parseSearchParams('?order=createdAt_desc&page=2');
 // Result: { 
@@ -226,16 +230,47 @@ const query3 = parseSearchParams('?page=2&skip=15&take=10');
 // Result: { where: {}, skip: 15, take: 10 }
 ```
 
-### Nested Relations
+### Nested Relations (Automatic)
 
 ```typescript
+// ✨ Nested relations work automatically with dot notation
+const query = parseSearchParams('?customer.name=John&customer.email_contains=@example.com');
+// Result: { 
+//   where: { 
+//     customer: { 
+//       name: 'John', 
+//       email: { contains: '@example.com' } 
+//     } 
+//   } 
+// }
+
+// Works with all operators
+const query2 = parseSearchParams('?order.total_gte=100&order.status=pending');
+// Result: { 
+//   where: { 
+//     order: { 
+//       total: { gte: 100 }, 
+//       status: 'pending' 
+//     } 
+//   } 
+// }
+
+// Deeply nested relations
+const query3 = parseSearchParams('?user.profile.bio_contains=developer');
+// Result: { 
+//   where: { 
+//     user: { 
+//       profile: { 
+//         bio: { contains: 'developer' } 
+//       } 
+//     } 
+//   } 
+// }
+
+// Manual parsing (advanced use case)
 import { parseNestedRelations, mergeRelations } from 'prisma-searchparams-mapper';
 
-// ?user.name=John&user.email_contains=@example.com
-const relations = parseNestedRelations('?user.name=John&user.email_contains=@example.com');
-// Result: { user: { name: 'John', email: { contains: '@example.com' } } }
-
-// Merge with existing where clause
+const relations = parseNestedRelations('?user.name=John');
 const baseQuery = parseSearchParams('?status=active');
 const fullWhere = mergeRelations(baseQuery.where, relations);
 ```

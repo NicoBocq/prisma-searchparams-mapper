@@ -116,8 +116,58 @@ export function parseSearchParams<
 
     // order (custom key or default 'order')
     if (key === orderKey) {
-      const [field, dir] = value.split('_')
+      // Support both underscore and colon separators: updatedAt_asc or updatedAt:asc
+      const separator = value.includes(':') ? ':' : '_'
+      const [field, dir] = value.split(separator)
       orderBy[field] = dir === 'desc' ? 'desc' : 'asc'
+      return
+    }
+
+    // Handle nested relations (e.g., customer.name or customer.email_contains)
+    if (key.includes('.')) {
+      const parts = key.split('.')
+      const lastPart = parts[parts.length - 1]
+
+      // Check if last part has an operator
+      const operatorMatch = lastPart.match(
+        /(.+?)_(in|notIn|not|gte|lte|gt|lt|contains|startsWith|endsWith)$/,
+      )
+
+      let current = where
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i]
+        if (!current[part]) {
+          current[part] = {}
+        }
+        current = current[part]
+      }
+
+      if (operatorMatch) {
+        // Has operator: customer.email_contains
+        const [, field, op] = operatorMatch
+        const vals = value.includes(',')
+          ? value.split(',').map(normalizeValue)
+          : [normalizeValue(value)]
+        const operatorValue = ['in', 'notIn'].includes(op) ? vals : vals[0]
+        const condition: any = { [op]: operatorValue }
+
+        if (
+          searchMode === 'insensitive' &&
+          ['contains', 'startsWith', 'endsWith'].includes(op)
+        ) {
+          condition.mode = 'insensitive'
+        }
+
+        // Merge with existing operators on the same field
+        if (current[field] && typeof current[field] === 'object') {
+          current[field] = { ...current[field], ...condition }
+        } else {
+          current[field] = condition
+        }
+      } else {
+        // No operator: customer.name
+        current[lastPart] = normalizeValue(value)
+      }
       return
     }
 

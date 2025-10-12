@@ -447,25 +447,38 @@ const query = parseSearchParams<
 // }
 ```
 
-### Nested Relations
+### Nested Relations (Automatic)
 
 ```typescript
-import { parseNestedRelations, mergeRelations } from 'prisma-searchparams-mapper';
-
-// URL: ?status=ACTIVE&author.email_contains=@example.com&author.role=ADMIN
-
-const baseQuery = parseSearchParams<
+// ✨ Nested relations work automatically with dot notation
+const query = parseSearchParams<
   Prisma.PostWhereInput,
   Prisma.PostOrderByWithRelationInput
->('?status=ACTIVE&order=createdAt_desc');
-const relations = parseNestedRelations('?author.email_contains=@example.com&author.role=ADMIN');
+>('?status=ACTIVE&author.email_contains=@example.com&author.role=ADMIN&order=createdAt_desc');
 
-const fullWhere = mergeRelations(baseQuery.where, relations);
+// Result:
+// {
+//   where: {
+//     status: 'ACTIVE',
+//     author: {
+//       email: { contains: '@example.com' },
+//       role: 'ADMIN'
+//     }
+//   },
+//   orderBy: { createdAt: 'desc' }
+// }
 
 const posts = await prisma.post.findMany({
-  where: fullWhere,
+  ...query,
   include: { author: true },
 });
+
+// Advanced: Manual parsing (if you need separate handling)
+import { parseNestedRelations, mergeRelations } from 'prisma-searchparams-mapper';
+
+const baseQuery = parseSearchParams('?status=ACTIVE');
+const relations = parseNestedRelations('?author.email_contains=@example.com');
+const fullWhere = mergeRelations(baseQuery.where, relations);
 ```
 
 ### Contextual Where (Tenant, User Filters)
@@ -543,7 +556,7 @@ console.log(searchParams.toString());
 | Less than or equal | `?age_lte=65` | `{ age: { lte: 65 } }` |
 | Global search | `?search=john` or `?q=john` | `{ OR: [...] }` (with searchFields) |
 | Insensitive mode | Option: `searchMode: 'insensitive'` | `{ contains: 'x', mode: 'insensitive' }` |
-| Sorting | `?order=createdAt_desc` | `{ orderBy: { createdAt: 'desc' } }` |
+| Sorting | `?order=createdAt_desc` or `?order=createdAt:desc` | `{ orderBy: { createdAt: 'desc' } }` |
 | Pagination (page) | `?page=2` | `{ skip: 10, take: 10 }` |
 | Pagination (offset) | `?skip=20&take=10` | `{ skip: 20, take: 10 }` |
 | Page size | `?pageSize=20` | `{ take: 20 }` |

@@ -783,3 +783,136 @@ describe('not and notIn operators', () => {
     })
   })
 })
+
+describe('Sorting (orderBy)', () => {
+  it('should parse sorting with underscore separator', () => {
+    const result = parseSearchParams('?order=createdAt_desc')
+    expect(result.orderBy).toEqual({ createdAt: 'desc' })
+  })
+
+  it('should parse sorting with colon separator', () => {
+    const result = parseSearchParams('?order=updatedAt:asc')
+    expect(result.orderBy).toEqual({ updatedAt: 'asc' })
+  })
+
+  it('should default to asc if direction not specified', () => {
+    const result = parseSearchParams('?order=name_invalid')
+    expect(result.orderBy).toEqual({ name: 'asc' })
+  })
+
+  it('should work with custom order key', () => {
+    const result = parseSearchParams('?sort=name_asc', { orderKey: 'sort' })
+    expect(result.orderBy).toEqual({ name: 'asc' })
+  })
+
+  it('should work with custom order key and colon', () => {
+    const result = parseSearchParams('?sort=name:desc', { orderKey: 'sort' })
+    expect(result.orderBy).toEqual({ name: 'desc' })
+  })
+
+  it('should combine sorting with filters', () => {
+    const result = parseSearchParams('?status=active&order=createdAt_desc')
+    expect(result.where).toEqual({ status: 'active' })
+    expect(result.orderBy).toEqual({ createdAt: 'desc' })
+  })
+
+  it('should work with object input and underscore', () => {
+    const result = parseSearchParams({ order: 'name_asc' })
+    expect(result.orderBy).toEqual({ name: 'asc' })
+  })
+
+  it('should work with object input and colon', () => {
+    const result = parseSearchParams({ order: 'name:desc' })
+    expect(result.orderBy).toEqual({ name: 'desc' })
+  })
+})
+
+describe('Nested Relations (automatic)', () => {
+  it('should parse nested relation with simple value', () => {
+    const result = parseSearchParams('?customer.name=John')
+    expect(result.where).toEqual({
+      customer: { name: 'John' },
+    })
+  })
+
+  it('should parse nested relation with operator', () => {
+    const result = parseSearchParams('?customer.email_contains=@example.com')
+    expect(result.where).toEqual({
+      customer: { email: { contains: '@example.com' } },
+    })
+  })
+
+  it('should parse multiple nested relations', () => {
+    const result = parseSearchParams(
+      '?customer.name=John&customer.email_contains=@example.com',
+    )
+    expect(result.where).toEqual({
+      customer: {
+        name: 'John',
+        email: { contains: '@example.com' },
+      },
+    })
+  })
+
+  it('should parse deeply nested relations', () => {
+    const result = parseSearchParams('?user.profile.bio_contains=developer')
+    expect(result.where).toEqual({
+      user: {
+        profile: {
+          bio: { contains: 'developer' },
+        },
+      },
+    })
+  })
+
+  it('should parse nested with case-insensitive mode', () => {
+    const result = parseSearchParams('?customer.name_contains=john', {
+      searchMode: 'insensitive',
+    })
+    expect(result.where).toEqual({
+      customer: {
+        name: { contains: 'john', mode: 'insensitive' },
+      },
+    })
+  })
+
+  it('should combine nested and non-nested filters', () => {
+    const result = parseSearchParams(
+      '?status=active&customer.name=John&role=admin',
+    )
+    expect(result.where).toEqual({
+      status: 'active',
+      customer: { name: 'John' },
+      role: 'admin',
+    })
+  })
+
+  it('should parse nested with in operator', () => {
+    const result = parseSearchParams('?customer.role_in=admin,user')
+    expect(result.where).toEqual({
+      customer: { role: { in: ['admin', 'user'] } },
+    })
+  })
+
+  it('should parse nested with comparison operators', () => {
+    const result = parseSearchParams('?order.total_gte=100&order.total_lte=500')
+    expect(result.where).toEqual({
+      order: {
+        total: { gte: 100, lte: 500 },
+      },
+    })
+  })
+
+  it('should work with object input', () => {
+    const result = parseSearchParams({
+      'customer.name': 'John',
+      'customer.email_contains': '@example.com',
+    })
+    expect(result.where).toEqual({
+      customer: {
+        name: 'John',
+        email: { contains: '@example.com' },
+      },
+    })
+  })
+})
