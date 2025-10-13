@@ -106,7 +106,9 @@ describe('parseSearchParams', () => {
 
   it('should parse contains operator', () => {
     const result = parseSearchParams('?name_contains=john')
-    expect(result.where).toEqual({ name: { contains: 'john' } })
+    expect(result.where).toEqual({
+      name: { contains: 'john', mode: 'insensitive' },
+    })
   })
 
   it('should parse orderBy', () => {
@@ -226,7 +228,7 @@ describe('Type-safe parsing', () => {
       '?email_contains=test&age_gte=18',
     )
     expect(result.where).toEqual({
-      email: { contains: 'test' },
+      email: { contains: 'test', mode: 'insensitive' },
       age: { gte: 18 },
     })
   })
@@ -320,6 +322,19 @@ describe('Search mode and operators', () => {
     expect(orConditions[1].email.mode).toBe('insensitive')
   })
 
+  it('should handle search on nested fields', () => {
+    const result = parseSearchParams('?search=john', {
+      searchFields: ['name', 'user.name'],
+    })
+
+    expect(result.where).toEqual({
+      OR: [
+        { name: { contains: 'john', mode: 'insensitive' } },
+        { 'user.name': { contains: 'john', mode: 'insensitive' } },
+      ],
+    })
+  })
+
   it('should add insensitive mode to contains operator', () => {
     const result = parseSearchParams('?name_contains=john', {
       searchMode: 'insensitive',
@@ -336,8 +351,8 @@ describe('Search mode and operators', () => {
     )
 
     expect(result.where).toEqual({
-      email: { startsWith: 'admin' },
-      name: { endsWith: 'son' },
+      email: { startsWith: 'admin', mode: 'insensitive' },
+      name: { endsWith: 'son', mode: 'insensitive' },
     })
   })
 
@@ -720,7 +735,7 @@ describe('Edge cases', () => {
   it('should handle operator with empty value', () => {
     const result = parseSearchParams('?name_contains=')
     expect(result.where).toEqual({
-      name: { contains: '' },
+      name: { contains: '', mode: 'insensitive' },
     })
   })
 
@@ -940,7 +955,7 @@ describe('Nested Relations (automatic)', () => {
   it('should parse nested relation with operator', () => {
     const result = parseSearchParams('?customer.email_contains=@example.com')
     expect(result.where).toEqual({
-      customer: { email: { contains: '@example.com' } },
+      customer: { email: { contains: '@example.com', mode: 'insensitive' } },
     })
   })
 
@@ -951,7 +966,7 @@ describe('Nested Relations (automatic)', () => {
     expect(result.where).toEqual({
       customer: {
         name: 'John',
-        email: { contains: '@example.com' },
+        email: { contains: '@example.com', mode: 'insensitive' },
       },
     })
   })
@@ -961,7 +976,7 @@ describe('Nested Relations (automatic)', () => {
     expect(result.where).toEqual({
       user: {
         profile: {
-          bio: { contains: 'developer' },
+          bio: { contains: 'developer', mode: 'insensitive' },
         },
       },
     })
@@ -1013,7 +1028,7 @@ describe('Nested Relations (automatic)', () => {
     expect(result.where).toEqual({
       customer: {
         name: 'John',
-        email: { contains: '@example.com' },
+        email: { contains: '@example.com', mode: 'insensitive' },
       },
     })
   })

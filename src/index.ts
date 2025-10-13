@@ -79,7 +79,7 @@ export function parseSearchParams<
 
   // Handle global search with OR logic
   let searchValue: string | undefined
-  const searchMode = options.searchMode || 'default'
+  const searchMode = options.searchMode || 'insensitive'
   const logicalOp = options.logicalOperator
   const searchKey = options.searchKey || 'search'
   const orderKey = options.orderKey || 'order'
