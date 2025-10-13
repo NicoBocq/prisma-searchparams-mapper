@@ -10,7 +10,7 @@ export type PrismaOperator = {
 
 export type PrismaWhere = Record<string, PrismaFilterValue | PrismaOperator>
 
-export interface PrismaQuery<
+export interface SearchParamsQuery<
   TWhereInput = PrismaWhere,
   TOrderByInput = Record<string, 'asc' | 'desc'>,
 > {
@@ -20,16 +20,28 @@ export interface PrismaQuery<
   take?: number
 }
 
+/**
+ * @deprecated Use SearchParamsQuery instead
+ */
+export type PrismaQuery<
+  TWhereInput = PrismaWhere,
+  TOrderByInput = Record<string, 'asc' | 'desc'>,
+> = SearchParamsQuery<TWhereInput, TOrderByInput>
+
 export type SearchMode = 'default' | 'insensitive'
 export type LogicalOperator = 'AND' | 'OR'
 
-export interface ParseOptions<TWhereInput = PrismaWhere> {
+export interface ParseOptions<
+  TWhereInput = PrismaWhere,
+  TOrderByInput = Record<string, 'asc' | 'desc'>,
+> {
   pageSize?: number
   searchMode?: SearchMode
   searchFields?: (keyof TWhereInput | string)[]
   logicalOperator?: LogicalOperator
   searchKey?: string // Default: 'search' (also accepts 'q' as alias)
   orderKey?: string // Default: 'order'
+  mergeWith?: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>> // Merge with existing query
 }
 
 export function parseSearchParams<
@@ -40,8 +52,8 @@ export function parseSearchParams<
     | string
     | URLSearchParams
     | Record<string, string | string[] | undefined>,
-  options: ParseOptions<TWhereInput> = {},
-): PrismaQuery<TWhereInput, TOrderByInput> {
+  options: ParseOptions<TWhereInput, TOrderByInput> = {},
+): SearchParamsQuery<TWhereInput, TOrderByInput> {
   let params: URLSearchParams
 
   if (typeof input === 'string') {
@@ -260,13 +272,20 @@ export function parseSearchParams<
     }
   }
 
-  return {
+  const result: SearchParamsQuery<TWhereInput, TOrderByInput> = {
     where: where as TWhereInput,
     orderBy:
       Object.keys(orderBy).length > 0 ? (orderBy as TOrderByInput) : undefined,
     skip,
     take,
   }
+
+  // Merge with existing query if provided
+  if (options.mergeWith) {
+    return mergeQuery(options.mergeWith, result)
+  }
+
+  return result
 }
 
 // helper
@@ -284,7 +303,9 @@ function normalizeValue(v: string): string | number | boolean {
 export function toSearchParams<
   TWhereInput = PrismaWhere,
   TOrderByInput = Record<string, 'asc' | 'desc'>,
->(query: Partial<PrismaQuery<TWhereInput, TOrderByInput>>): URLSearchParams {
+>(
+  query: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>>,
+): URLSearchParams {
   const params = new URLSearchParams()
 
   // where filters
@@ -405,9 +426,9 @@ export function createParser<
         | string
         | URLSearchParams
         | Record<string, string | string[] | undefined>,
-      options?: ParseOptions<TWhereInput>,
+      options?: ParseOptions<TWhereInput, TOrderByInput>,
     ) => parseSearchParams<TWhereInput, TOrderByInput>(input, options),
-    toParams: (query: Partial<PrismaQuery<TWhereInput, TOrderByInput>>) =>
+    toParams: (query: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>>) =>
       toSearchParams<TWhereInput, TOrderByInput>(query),
     parseRelations: (
       input:
@@ -429,8 +450,8 @@ export function createParser<
  */
 export function mergeWhere<TWhereInput = PrismaWhere>(
   contextualWhere: Partial<TWhereInput>,
-  parsedQuery: PrismaQuery<TWhereInput, any>,
-): PrismaQuery<TWhereInput, any> {
+  parsedQuery: SearchParamsQuery<TWhereInput, any>,
+): SearchParamsQuery<TWhereInput, any> {
   return {
     ...parsedQuery,
     where: {
@@ -452,9 +473,9 @@ export function mergeQuery<
   TWhereInput = PrismaWhere,
   TOrderByInput = Record<string, 'asc' | 'desc'>,
 >(
-  contextualQuery: Partial<PrismaQuery<TWhereInput, TOrderByInput>>,
-  parsedQuery: PrismaQuery<TWhereInput, TOrderByInput>,
-): PrismaQuery<TWhereInput, TOrderByInput> {
+  contextualQuery: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>>,
+  parsedQuery: SearchParamsQuery<TWhereInput, TOrderByInput>,
+): SearchParamsQuery<TWhereInput, TOrderByInput> {
   return {
     ...contextualQuery,
     ...parsedQuery,

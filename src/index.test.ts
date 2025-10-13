@@ -39,6 +39,46 @@ describe('parseSearchParams', () => {
     expect(result.where).toEqual({ status: 'active' })
   })
 
+  it('should handle mixed types in object input', () => {
+    const result = parseSearchParams({
+      name: 'John',
+      age: '30',
+      isActive: 'true',
+      score: '95.5',
+    })
+    expect(result.where).toEqual({
+      name: 'John',
+      age: 30,
+      isActive: true,
+      score: 95.5,
+    })
+  })
+
+  it('should handle array of numbers in object input', () => {
+    const result = parseSearchParams({ age_in: ['18', '25', '30'] })
+    expect(result.where).toEqual({ age: { in: [18, 25, 30] } })
+  })
+
+  it('should handle array of booleans in object input', () => {
+    const result = parseSearchParams({ isActive: ['true', 'false'] })
+    expect(result.where).toEqual({ isActive: { in: [true, false] } })
+  })
+
+  it('should keep id fields as strings by default', () => {
+    const result = parseSearchParams('?id=1234568&userId=9876543')
+    expect(result.where).toEqual({ id: 1234568, userId: 9876543 })
+  })
+
+  it('should keep UUID-like IDs as strings', () => {
+    const result = parseSearchParams('?id=550e8400-e29b-41d4-a716-446655440000')
+    expect(result.where).toEqual({ id: '550e8400-e29b-41d4-a716-446655440000' })
+  })
+
+  it('should keep CUID-like IDs as strings', () => {
+    const result = parseSearchParams('?id=clx123abc456def789')
+    expect(result.where).toEqual({ id: 'clx123abc456def789' })
+  })
+
   it('should parse boolean values', () => {
     const result = parseSearchParams('?isActive=true&isDeleted=false')
     expect(result.where).toEqual({ isActive: true, isDeleted: false })
@@ -419,6 +459,27 @@ describe('mergeQuery (where + orderBy)', () => {
     })
   })
 
+  it('should merge using mergeWith option', () => {
+    const contextualQuery = {
+      where: { tenantId: 'tenant-123' },
+      orderBy: { createdAt: 'desc' as const },
+    }
+
+    const result = parseSearchParams('?status=active', {
+      mergeWith: contextualQuery,
+    })
+
+    expect(result).toEqual({
+      where: {
+        status: 'active',
+        tenantId: 'tenant-123',
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: undefined,
+      take: undefined,
+    })
+  })
+
   it('should allow user to override default orderBy', () => {
     const contextualQuery = {
       where: { tenantId: 'tenant-123' },
@@ -468,6 +529,47 @@ describe('mergeQuery (where + orderBy)', () => {
 
     expect(merged.skip).toBe(20)
     expect(merged.take).toBe(20)
+  })
+
+  it('should merge with complex contextual query using mergeWith', () => {
+    const contextualQuery = {
+      where: {
+        tenantId: 'tenant-123',
+        customerId: 'customer-456',
+        shopifyId: { not: null },
+      },
+      orderBy: { updatedAt: 'desc' as const },
+    }
+
+    const result = parseSearchParams('?status=active&page=2', {
+      mergeWith: contextualQuery,
+      pageSize: 20,
+    })
+
+    expect(result).toEqual({
+      where: {
+        status: 'active',
+        tenantId: 'tenant-123',
+        customerId: 'customer-456',
+        shopifyId: { not: null },
+      },
+      orderBy: { updatedAt: 'desc' },
+      skip: 20,
+      take: 20,
+    })
+  })
+
+  it('should allow user to override orderBy with mergeWith', () => {
+    const contextualQuery = {
+      where: { tenantId: 'tenant-123' },
+      orderBy: { createdAt: 'desc' as const },
+    }
+
+    const result = parseSearchParams('?status=active&order=name_asc', {
+      mergeWith: contextualQuery,
+    })
+
+    expect(result.orderBy).toEqual({ name: 'asc' })
   })
 })
 
