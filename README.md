@@ -377,11 +377,12 @@ Converts URL search parameters to a Prisma query object.
 - `input` - URL search params as string, URLSearchParams, or plain object (e.g., Next.js searchParams)
 - `options` - Optional configuration
   - `pageSize` - Items per page (default: 10)
-  - `searchMode` - Search mode: `'default'` or `'insensitive'` (case-insensitive)
+  - `searchMode` - Search mode: `'default'` or `'insensitive'` (default: `'insensitive'`)
   - `searchFields` - Array of field names for global search (type-safe with Prisma types)
   - `logicalOperator` - Logical operator: `'AND'` or `'OR'` for combining conditions
   - `searchKey` - Custom key for global search (default: `'search'`, also accepts `'q'` as alias)
   - `orderKey` - Custom key for sorting (default: `'order'`)
+  - `mergeWith` - Merge with existing query (contextual filters, default sorting, etc.)
 
 **Type-safe searchFields:**
 ```typescript
@@ -460,6 +461,28 @@ const merged = mergeQuery(contextualQuery, query);
 // User can override orderBy but not tenantId
 // WHERE tenantId = 'tenant-123' AND status = 'active' ORDER BY name ASC
 ```
+
+**Alternative: Use `mergeWith` option (simpler)**
+
+Instead of calling `mergeQuery()` separately, you can use the `mergeWith` option directly in `parseSearchParams()`:
+
+```typescript
+// ✨ Simpler approach - merge directly in parseSearchParams
+const query = parseSearchParams('?status=active&order=name_asc', {
+  mergeWith: {
+    where: { tenantId: 'tenant-123' },
+    orderBy: { createdAt: 'desc' }, // default sort (user can override)
+  }
+});
+
+// Same result as mergeQuery() but in one call
+const users = await prisma.user.findMany(query);
+// WHERE tenantId = 'tenant-123' AND status = 'active' ORDER BY name ASC
+```
+
+**When to use each:**
+- Use `mergeWith` option for simple cases (recommended)
+- Use `mergeQuery()` function when you need more control or reusable contextual queries
 
 ### `createParser<TWhereInput, TOrderByInput>()`
 

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`mergeWith` option** - Merge with existing query directly in `parseSearchParams()`
+  - Simplifies query merging without calling `mergeQuery()` separately
+  - Example: `parseSearchParams(params, { mergeWith: { where: { tenantId: 'abc' } } })`
+  - Contextual where takes priority for security
+  - User orderBy takes priority for UX
+
+### Changed
+- **BREAKING: Renamed `PrismaQuery` to `SearchParamsQuery`** for better clarity and uniqueness
+  - `PrismaQuery` and `ParsedQuery` kept as deprecated aliases for backward compatibility
+  - Update your imports: `import type { SearchParamsQuery } from 'prisma-searchparams-mapper'`
+- **BREAKING: Default `searchMode` changed to `'insensitive'`** for better UX
+  - String operators (`contains`, `startsWith`, `endsWith`) are now case-insensitive by default
+  - Searching for "john" will match "John", "JOHN", etc.
+  - Use `searchMode: 'default'` to restore case-sensitive behavior
+
+### Fixed
+- **Nested fields in `searchFields`** now generate proper Prisma nested structure
+  - Before: `{ "customer.name": { contains: "john" } }` ❌ (invalid Prisma syntax)
+  - After: `{ customer: { name: { contains: "john" } } }` ✅
+  - Supports unlimited nesting depth (e.g., `'user.profile.bio'`)
+  - Works with all logical operators (AND/OR)
+
 ## [1.1.1] - 2025-01-10
 
 ### Added
