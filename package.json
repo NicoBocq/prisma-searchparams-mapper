@@ -1,6 +1,6 @@
 {
   "name": "prisma-searchparams-mapper",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Stop writing boilerplate! Convert URL search params to Prisma queries in one line. Type-safe, framework-agnostic, perfect for Next.js/TanStack Router.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
