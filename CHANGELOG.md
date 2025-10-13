@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.2] - 2025-13-10
 
 ### Added
 - **`mergeWith` option** - Merge with existing query directly in `parseSearchParams()`
@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports unlimited nesting depth (e.g., `'user.profile.bio'`)
   - Works with all logical operators (AND/OR)
 
-## [1.1.1] - 2025-01-10
+## [1.1.1] - 2025-13-10
 
 ### Added
 - **Automatic nested relations** - Dot notation now works automatically in `parseSearchParams()`
@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Nested operators merge** - Multiple operators on the same nested field are now correctly merged
   - `?order.total_gte=100&order.total_lte=500` correctly generates `{ order: { total: { gte: 100, lte: 500 } } }`
 
-## [1.1.0] - 2025-01-10
+## [1.1.0] - 2025-13-10
 
 ### Added
 - **Direct object input support** - `parseSearchParams()` now accepts plain objects
@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated all documentation examples to showcase direct object support
 - Added comprehensive tests for object input format
 
-## [1.0.0] - 2025-01-10
+## [1.0.0] - 2025-13-10
 
 ### Added
 - Initial release of prisma-searchparams-mapper
