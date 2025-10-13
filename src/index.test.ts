@@ -322,17 +322,14 @@ describe('Search mode and operators', () => {
     expect(orConditions[1].email.mode).toBe('insensitive')
   })
 
-  it('should handle search on nested fields', () => {
+  it('should handle search on nested fields (deprecated - see Global Search section)', () => {
     const result = parseSearchParams('?search=john', {
       searchFields: ['name', 'user.name'],
     })
 
-    expect(result.where).toEqual({
-      OR: [
-        { name: { contains: 'john', mode: 'insensitive' } },
-        { 'user.name': { contains: 'john', mode: 'insensitive' } },
-      ],
-    })
+    expect(result.where).toHaveProperty('OR')
+    const orConditions = (result.where as any).OR
+    expect(orConditions).toHaveLength(2)
   })
 
   it('should add insensitive mode to contains operator', () => {
@@ -391,7 +388,7 @@ describe('Search mode and operators', () => {
     expect(result.where).toHaveProperty('OR')
   })
 
-  it('should support nested fields in searchFields', () => {
+  it('should support nested fields in searchFields (deprecated - see Global Search section)', () => {
     const result = parseSearchParams('?search=john', {
       searchFields: ['name', 'user.email', 'post.title'],
     })
@@ -399,9 +396,127 @@ describe('Search mode and operators', () => {
     expect(result.where).toHaveProperty('OR')
     const orConditions = (result.where as any).OR
     expect(orConditions).toHaveLength(3)
-    expect(orConditions[0]).toHaveProperty('name')
-    expect(orConditions[1]).toHaveProperty('user.email')
-    expect(orConditions[2]).toHaveProperty('post.title')
+  })
+})
+
+describe('Global Search (searchFields)', () => {
+  it('should handle simple fields', () => {
+    const result = parseSearchParams('?search=john', {
+      searchFields: ['name', 'email'],
+    })
+
+    expect(result.where).toEqual({
+      OR: [
+        { name: { contains: 'john', mode: 'insensitive' } },
+        { email: { contains: 'john', mode: 'insensitive' } },
+      ],
+    })
+  })
+
+  it('should handle nested fields (1 level)', () => {
+    const result = parseSearchParams('?search=john', {
+      searchFields: ['name', 'customer.name'],
+    })
+
+    expect(result.where).toEqual({
+      OR: [
+        { name: { contains: 'john', mode: 'insensitive' } },
+        { customer: { name: { contains: 'john', mode: 'insensitive' } } },
+      ],
+    })
+  })
+
+  it('should handle deeply nested fields (2+ levels)', () => {
+    const result = parseSearchParams('?search=developer', {
+      searchFields: ['bio', 'user.profile.bio'],
+    })
+
+    expect(result.where).toEqual({
+      OR: [
+        { bio: { contains: 'developer', mode: 'insensitive' } },
+        {
+          user: {
+            profile: { bio: { contains: 'developer', mode: 'insensitive' } },
+          },
+        },
+      ],
+    })
+  })
+
+  it('should handle mixed simple and nested fields', () => {
+    const result = parseSearchParams('?search=test', {
+      searchFields: ['name', 'email', 'customer.name', 'user.profile.bio'],
+    })
+
+    expect(result.where).toHaveProperty('OR')
+    const orConditions = (result.where as any).OR
+    expect(orConditions).toHaveLength(4)
+    expect(orConditions[0]).toEqual({
+      name: { contains: 'test', mode: 'insensitive' },
+    })
+    expect(orConditions[1]).toEqual({
+      email: { contains: 'test', mode: 'insensitive' },
+    })
+    expect(orConditions[2]).toEqual({
+      customer: { name: { contains: 'test', mode: 'insensitive' } },
+    })
+    expect(orConditions[3]).toEqual({
+      user: {
+        profile: { bio: { contains: 'test', mode: 'insensitive' } },
+      },
+    })
+  })
+
+  it('should respect searchMode default', () => {
+    const result = parseSearchParams('?search=john', {
+      searchFields: ['name'],
+      searchMode: 'default',
+    })
+
+    expect(result.where).toEqual({
+      OR: [{ name: { contains: 'john' } }],
+    })
+  })
+
+  it('should combine with existing filters using AND (default)', () => {
+    const result = parseSearchParams('?status=active&search=john', {
+      searchFields: ['name', 'customer.name'],
+    })
+
+    expect(result.where).toHaveProperty('AND')
+    const andConditions = (result.where as any).AND
+    expect(andConditions).toHaveLength(2)
+    expect(andConditions[0]).toHaveProperty('status')
+    expect(andConditions[1]).toHaveProperty('OR')
+  })
+
+  it('should use OR logical operator when specified', () => {
+    const result = parseSearchParams('?status=active&search=john', {
+      searchFields: ['name', 'customer.name'],
+      logicalOperator: 'OR',
+    })
+
+    expect(result.where).toHaveProperty('OR')
+    const orConditions = (result.where as any).OR
+    expect(orConditions).toHaveLength(2)
+    expect(orConditions[0]).toHaveProperty('status')
+    expect(orConditions[1]).toHaveProperty('OR')
+  })
+
+  it('should use AND logical operator explicitly', () => {
+    const result = parseSearchParams('?status=active&role=admin&search=john', {
+      searchFields: ['name', 'email'],
+      logicalOperator: 'AND',
+    })
+
+    expect(result.where).toHaveProperty('AND')
+    const andConditions = (result.where as any).AND
+    expect(andConditions).toHaveLength(2)
+    // First element contains the existing filters
+    expect(andConditions[0]).toEqual({ status: 'active', role: 'admin' })
+    // Second element contains the search OR conditions
+    expect(andConditions[1]).toHaveProperty('OR')
+    expect(andConditions[1].OR).toHaveLength(2)
   })
 })
 

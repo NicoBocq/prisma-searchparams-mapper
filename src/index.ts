@@ -249,10 +249,34 @@ export function parseSearchParams<
   // Handle global search across multiple fields
   if (searchValue && options.searchFields && options.searchFields.length > 0) {
     const searchConditions = options.searchFields.map((field) => {
-      const condition: any = {
-        [field]: {
+      const fieldStr = String(field)
+
+      // Handle nested fields (e.g., 'customer.name')
+      if (fieldStr.includes('.')) {
+        const parts = fieldStr.split('.')
+        const condition: any = {}
+        let current = condition
+
+        // Build nested structure
+        for (let i = 0; i < parts.length - 1; i++) {
+          current[parts[i]] = {}
+          current = current[parts[i]]
+        }
+
+        // Add the final field with contains operator
+        current[parts[parts.length - 1]] = {
           contains: searchValue,
-          ...(searchMode === 'insensitive' && { mode: 'insensitive' }),
+          ...(searchMode !== 'default' && { mode: searchMode }),
+        }
+
+        return condition
+      }
+
+      // Simple field
+      const condition: any = {
+        [fieldStr]: {
+          contains: searchValue,
+          ...(searchMode !== 'default' && { mode: searchMode }),
         },
       }
       return condition
