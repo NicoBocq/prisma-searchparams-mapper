@@ -1,22 +1,17 @@
-# 🧭 prisma-searchparams-mapper
+# prisma-searchparams-mapper
 
 [![npm version](https://img.shields.io/npm/v/prisma-searchparams-mapper.svg?color=blue)](https://www.npmjs.com/package/prisma-searchparams-mapper)
 [![npm downloads](https://img.shields.io/npm/dm/prisma-searchparams-mapper.svg)](https://npmjs.com/package/prisma-searchparams-mapper)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/prisma-searchparams-mapper)](https://bundlephobia.com/package/prisma-searchparams-mapper)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![typescript](https://img.shields.io/badge/written%20in-TypeScript-blue)](tsconfig.json)
-[![AI friendly](https://img.shields.io/badge/AI-friendly-purple)](AI_USAGE.md)
 
-Convert your **URLSearchParams** ↔ **Prisma queries** (`where`, `orderBy`, pagination) —  
-perfect for **Next.js**, **Remix**, or any app bridging the client’s query string with Prisma filters.
+Convert URL search parameters to Prisma queries (`where`, `orderBy`, pagination) and back. Type-safe, framework-agnostic, works with Next.js, TanStack Router, Express, Fastify.
 
----
+## Why?
 
-## Why prisma-searchparams-mapper?
+Stop writing boilerplate. Turn 50+ lines of manual URL parsing into a single line.
 
-**Stop writing boilerplate!** Turn 50+ lines of manual URL parsing into a single line.
-
-### Before (Manual parsing 😫)
+### Before
 ```typescript
 const where: Prisma.UserWhereInput = {};
 if (searchParams.status) where.status = searchParams.status;
@@ -30,60 +25,58 @@ if (searchParams.role) {
 // ... 40+ more lines for all operators, pagination, sorting, etc.
 ```
 
-### After (One line 🎉)
+### After
 ```typescript
 const query = parseSearchParams<Prisma.UserWhereInput>(searchParams);
 const users = await prisma.user.findMany(query);
 ```
 
-### Perfect for
+## Features
 
-- 🔍 **Search pages** with filters and sorting
-- 📊 **Admin dashboards** with complex queries
-- 🏢 **Multi-tenant apps** (built-in context merging)
-- ♾️ **Infinite scroll** (offset-based pagination)
-- 🎨 **Data tables** with dynamic filtering
+- Bidirectional mapping: URLSearchParams ↔ Prisma queries
+- Type-safe with Prisma types
+- Framework-agnostic (Next.js, TanStack Router, Express, Fastify)
+- Simple syntax: `?status=active&role_in=admin,user&order=createdAt_desc&page=2`
+- Global search across multiple fields
+- Nested relations with dot notation
+- Smart merging for multi-tenant apps
 
----
-
-## ✨ Features
-
-- 🔁 **Bidirectional mapping**:  
-  `URLSearchParams` → Prisma `{ where, orderBy, take, skip }` and back.
-- ⚙️ **Type-safe ready**:  
-  Works with your Prisma models’ typings.
-- 🧩 **Platform-agnostic**:  
-  Works with Next.js, TanStack Router, Express, Fastify, or any Node.js framework.
-- 🔗 **Plays well with others**:  
-  Combine with nuqs for client-side state management.
-- 🧠 **Simple, predictable syntax**:  
-  `?status=active&role_in=admin,user&order=createdAt_desc&page=2`
-- 🔍 **Global search**:  
-  Search across multiple fields with `?search=john` or `?q=john`
-- 🔤 **Case-insensitive mode**:  
-  Built-in support for case-insensitive search
-- 🔗 **Automatic nested relations**:  
-  Handle nested Prisma relations with dot notation (`customer.name=John`, `order.total_gte=100`)
-- ✨ **Multiple input formats**:  
-  Accepts strings, URLSearchParams, or plain objects (Next.js searchParams, TanStack Router deps)
-
----
-
-## 📦 Installation
+## Installation
 
 ```bash
 npm install prisma-searchparams-mapper
-# or
-pnpm add prisma-searchparams-mapper
-# or
-yarn add prisma-searchparams-mapper
 ```
 
-> **Note**: This library works with or without Prisma. If you want type-safe integration, make sure you have `@prisma/client` installed in your project. The library uses generic types and doesn't install Prisma to avoid version conflicts.
+**Note**: For type-safe integration, install `@prisma/client` in your project. This library uses generic types and doesn't bundle Prisma to avoid version conflicts.
 
----
+## Security Warning
 
-## 🚀 Usage
+**Always validate and sanitize user inputs before using them in database queries.**
+
+```typescript
+// ❌ NEVER trust user input directly
+const query = parseSearchParams(req.query); // Dangerous!
+
+// ✅ ALWAYS validate with a schema validator (Zod, Yup, etc.)
+import { z } from 'zod';
+
+const searchParamsSchema = z.object({
+  status: z.enum(['active', 'inactive']).optional(),
+  role: z.enum(['admin', 'user', 'guest']).optional(),
+  page: z.coerce.number().int().positive().max(1000).optional(),
+});
+
+const validated = searchParamsSchema.parse(req.query);
+const query = parseSearchParams(validated);
+```
+
+This library parses URL parameters into Prisma queries but **does not validate the business logic**. You must validate:
+- Allowed field names
+- Allowed values (enums, ranges)
+- Permissions (which fields users can filter on)
+- Rate limiting and pagination limits
+
+## Usage
 
 ### Basic Example
 
@@ -363,7 +356,7 @@ const query3 = parseSearchParams('?page=2&pageSize=50');
 
 ---
 
-## 📖 API Reference
+## API Reference
 
 ### `parseSearchParams<TWhereInput, TOrderByInput>(input: string | URLSearchParams | Record<string, string | string[] | undefined>, options?: ParseOptions): PrismaQuery<TWhereInput, TOrderByInput>`
 
@@ -535,7 +528,7 @@ const postQuery = postParser.parse('?published=true&order=title_asc');
 
 ---
 
-## 🛠️ TypeScript Support
+## TypeScript Support
 
 Full TypeScript support with exported types:
 
@@ -574,37 +567,10 @@ const postParser = createParser<
 
 > **Note**: This library uses generic types and doesn't install `@prisma/client` to avoid version conflicts.
 
----
-
-## 📝 License
+## License
 
 MIT © Nicolas Bocquet
 
----
-
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
-
----
-
-## 📊 Comparison
-
-| Feature | Manual parsing | This library |
-|---------|---------------|--------------|
-| Lines of code | 50+ | 1 |
-| Type-safe | ❌ | ✅ |
-| Edge cases handled | ❌ | ✅ |
-| Bidirectional (URL ↔ Prisma) | ❌ | ✅ |
-| Multi-tenant support | ❌ | ✅ |
-| Framework-agnostic | ❌ | ✅ |
-| Bundle size | N/A | < 5kb |
-| Tests | ❌ | 100+ |
-
-## 🔗 Links
-
-- [npm package](https://www.npmjs.com/package/prisma-searchparams-mapper)
-- [GitHub repository](https://github.com/yourusername/prisma-searchparams-mapper)
-- [USAGE.md](./USAGE.md) - Detailed guide with Prisma examples
-- [CHANGELOG.md](./CHANGELOG.md) - Version history
-- [AI_USAGE.md](./AI_USAGE.md) - Guide for AI assistants
