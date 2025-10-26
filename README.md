@@ -426,16 +426,30 @@ Merges contextual where clause (tenant filters, user filters, etc.) with parsed 
 
 **Priority**: `contextualWhere` takes priority (security - prevents URL override)
 
+**Smart Merging**:
+- Simple filters (no AND/OR/NOT) are merged with spread operator
+- Complex filters with logical operators (AND/OR/NOT) are combined with AND to preserve all conditions
+- Nested AND arrays are automatically flattened for cleaner queries
+
 **Example:**
 ```typescript
-// Add tenant/user context to search params
+// Simple merge (no logical operators)
 const contextualWhere = { tenantId: 'tenant-123', userId: 'user-456' };
 const query = parseSearchParams('?status=active&role=admin');
 const merged = mergeWhere(contextualWhere, query);
+// Result: { tenantId: 'tenant-123', userId: 'user-456', status: 'active', role: 'admin' }
 
-// Use with Prisma
-const users = await prisma.user.findMany(merged);
-// WHERE tenantId = 'tenant-123' AND userId = 'user-456' AND status = 'active' AND role = 'admin'
+// Smart merge (with OR conditions)
+const query2 = parseSearchParams('?search=john', { searchFields: ['name', 'email'] });
+const permissionWhere = {
+  OR: [
+    { allowedCoachTypes: { isEmpty: true } },
+    { allowedCoachTypes: { has: 'coach-123' } }
+  ]
+};
+const merged2 = mergeWhere(permissionWhere, query2);
+// Result: { AND: [ { OR: [search conditions] }, { OR: [permission conditions] } ] }
+// Both OR conditions are preserved!
 ```
 
 ### `mergeQuery<TWhereInput, TOrderByInput>(contextualQuery: Partial<PrismaQuery>, parsedQuery: PrismaQuery): PrismaQuery`
@@ -443,9 +457,11 @@ const users = await prisma.user.findMany(merged);
 Merges contextual query (where + orderBy + pagination) with parsed query.
 
 **Priority**:
-- `where`: contextualQuery takes priority (security)
+- `where`: contextualQuery takes priority (security), with smart merging
 - `orderBy`: parsedQuery takes priority (user choice)
 - `skip/take`: parsedQuery takes priority
+
+**Smart Merging**: Uses the same intelligent merge logic as `mergeWhere` to preserve logical operators.
 
 **Example:**
 ```typescript

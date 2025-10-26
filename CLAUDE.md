@@ -43,13 +43,19 @@ The entire library is contained in `src/index.ts` (~500 lines). This is intentio
 - `parseNestedRelations` (lines 388-428): Extracts nested relations from params
 - `mergeRelations` (lines 433-438): Merges nested relations into where clause
 - `createParser` (lines 443-466): Factory for type-safe parsers
-- `mergeWhere` (lines 475-486): Merges contextual where filters (security)
-- `mergeQuery` (lines 496-513): Merges full query with contextual defaults
+- `hasLogicalOperators` (lines 469-474): Checks if where clause has AND/OR/NOT operators
+- `deepMergeWhere` (lines 476-526): **Smart merge** that preserves logical operators
+- `mergeWhere` (lines 528-540): Merges contextual where filters (uses deepMergeWhere)
+- `mergeQuery` (lines 542-556): Merges full query with contextual defaults (uses deepMergeWhere)
 
 **Key Implementation Details:**
 - `normalizeValue` (lines 316-322): Converts strings to proper types (boolean, number, string)
 - Operator precedence: `skip`/`take` override `page`/`pageSize`
-- Merge priority: Contextual filters always take precedence for security
+- **Smart Merge Logic**: `deepMergeWhere` intelligently combines where clauses:
+  - Simple filters (no logical operators): Uses spread operator, contextual takes priority
+  - Complex filters (with AND/OR/NOT): Combines with AND to preserve all conditions
+  - Automatically flattens nested AND arrays to avoid `AND: [AND: [...], ...]`
+  - Prevents OR conditions from being overwritten (fixes multi-tenant + search scenarios)
 
 ## Development Commands
 

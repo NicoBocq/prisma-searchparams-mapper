@@ -57,7 +57,7 @@ export function parseSearchParams<
   let params: URLSearchParams
 
   if (typeof input === 'string') {
-    params = new URLSearchParams(input.startsWith('?') ? input : '?' + input)
+    params = new URLSearchParams(input.startsWith('?') ? input : `?${input}`)
   } else if (input instanceof URLSearchParams) {
     params = input
   } else {
@@ -317,7 +317,7 @@ function normalizeValue(v: string): string | number | boolean {
   if (v === 'true') return true
   if (v === 'false') return false
   const num = Number(v)
-  if (!isNaN(num) && v.trim() !== '') return num
+  if (!Number.isNaN(num) && v.trim() !== '') return num
   return v
 }
 
@@ -394,7 +394,7 @@ export function parseNestedRelations(
   let params: URLSearchParams
 
   if (typeof input === 'string') {
-    params = new URLSearchParams(input.startsWith('?') ? input : '?' + input)
+    params = new URLSearchParams(input.startsWith('?') ? input : `?${input}`)
   } else if (input instanceof URLSearchParams) {
     params = input
   } else {
@@ -466,11 +466,73 @@ export function createParser<
 }
 
 /**
+ * Check if a where clause contains logical operators (AND, OR, NOT)
+ */
+function hasLogicalOperators(where: any): boolean {
+  if (!where || typeof where !== 'object') return false
+  return 'AND' in where || 'OR' in where || 'NOT' in where
+}
+
+/**
+ * Deep merge two where clauses, intelligently combining conditions
+ *
+ * Logic:
+ * - If one is empty, return the other
+ * - If neither has logical operators (AND/OR/NOT), use simple spread (contextual overrides)
+ * - If one or both have logical operators, combine with AND to preserve all conditions
+ * - Flattens nested AND arrays to avoid AND: [AND: [...], ...]
+ */
+function deepMergeWhere<TWhereInput>(
+  whereA: Partial<TWhereInput>,
+  whereB: Partial<TWhereInput>,
+): TWhereInput {
+  // If one is empty, return the other
+  const keysA = whereA ? Object.keys(whereA) : []
+  const keysB = whereB ? Object.keys(whereB) : []
+
+  if (keysA.length === 0) return whereB as TWhereInput
+  if (keysB.length === 0) return whereA as TWhereInput
+
+  // Check if either has logical operators
+  const hasLogicalA = hasLogicalOperators(whereA)
+  const hasLogicalB = hasLogicalOperators(whereB)
+
+  // If neither has logical operators, use simple spread (B overrides A)
+  if (!hasLogicalA && !hasLogicalB) {
+    return { ...whereA, ...whereB } as TWhereInput
+  }
+
+  // If one or both have logical operators, combine with AND to preserve all conditions
+  // Flatten nested AND arrays to avoid AND: [AND: [...], ...]
+  const conditions: any[] = []
+
+  // If whereA is just {AND: [...]}, flatten it
+  if ((whereA as any).AND && keysA.length === 1) {
+    conditions.push(...(whereA as any).AND)
+  } else {
+    conditions.push(whereA)
+  }
+
+  // If whereB is just {AND: [...]}, flatten it
+  if ((whereB as any).AND && keysB.length === 1) {
+    conditions.push(...(whereB as any).AND)
+  } else {
+    conditions.push(whereB)
+  }
+
+  return {
+    AND: conditions,
+  } as TWhereInput
+}
+
+/**
  * Merge contextual where clause with parsed query
  * Useful for adding tenant filters, user filters, etc.
  *
  * Note: contextualWhere takes priority over parsedQuery.where for security
  * (prevents users from overriding tenant/user filters via URL)
+ *
+ * Now uses smart merging: combines conditions with AND when logical operators are present
  */
 export function mergeWhere<TWhereInput = PrismaWhere>(
   contextualWhere: Partial<TWhereInput>,
@@ -478,10 +540,7 @@ export function mergeWhere<TWhereInput = PrismaWhere>(
 ): SearchParamsQuery<TWhereInput, any> {
   return {
     ...parsedQuery,
-    where: {
-      ...parsedQuery.where,
-      ...contextualWhere, // contextualWhere has priority
-    } as TWhereInput,
+    where: deepMergeWhere(parsedQuery.where, contextualWhere),
   }
 }
 
@@ -490,8 +549,10 @@ export function mergeWhere<TWhereInput = PrismaWhere>(
  * Useful for adding default filters and sorting
  *
  * Priority:
- * - where: contextualQuery takes priority (security)
+ * - where: contextualQuery takes priority (security), but uses smart merging
  * - orderBy: parsedQuery takes priority (user choice)
+ *
+ * Now uses smart merging: combines where conditions with AND when logical operators are present
  */
 export function mergeQuery<
   TWhereInput = PrismaWhere,
@@ -503,10 +564,10 @@ export function mergeQuery<
   return {
     ...contextualQuery,
     ...parsedQuery,
-    where: {
-      ...parsedQuery.where,
-      ...contextualQuery.where, // contextualQuery.where has priority
-    } as TWhereInput,
+    where: deepMergeWhere(
+      parsedQuery.where,
+      contextualQuery.where || ({} as TWhereInput),
+    ),
     // parsedQuery.orderBy has priority (user can override default sort)
     orderBy: parsedQuery.orderBy || contextualQuery.orderBy,
   }

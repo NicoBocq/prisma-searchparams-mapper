@@ -1148,3 +1148,257 @@ describe('Nested Relations (automatic)', () => {
     })
   })
 })
+
+describe('Smart Merge (deepMergeWhere)', () => {
+  describe('Simple cases (no logical operators)', () => {
+    it('should use simple spread when neither has logical operators', () => {
+      const parsedQuery = parseSearchParams('?status=active')
+      const contextualWhere: any = { tenantId: 'tenant-123' }
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      expect(merged.where).toEqual({
+        status: 'active',
+        tenantId: 'tenant-123',
+      })
+    })
+
+    it('should allow contextual to override parsed when simple values', () => {
+      const parsedQuery = parseSearchParams('?status=active&tenantId=bad')
+      const contextualWhere: any = { tenantId: 'tenant-123' }
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      // contextualWhere overrides for security
+      expect(merged.where).toEqual({
+        status: 'active',
+        tenantId: 'tenant-123',
+      })
+    })
+
+    it('should handle empty contextual where', () => {
+      const parsedQuery = parseSearchParams('?status=active')
+      const contextualWhere: any = {}
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      expect(merged.where).toEqual({ status: 'active' })
+    })
+
+    it('should handle empty parsed where', () => {
+      const parsedQuery = parseSearchParams('')
+      const contextualWhere: any = { tenantId: 'tenant-123' }
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      expect(merged.where).toEqual({ tenantId: 'tenant-123' })
+    })
+  })
+
+  describe('Complex cases (with logical operators)', () => {
+    it('should preserve OR in parsed query when merging with simple contextual', () => {
+      // Parsed query with global search (creates OR)
+      const parsedQuery = parseSearchParams('?search=john', {
+        searchFields: ['name', 'email'],
+      })
+      const contextualWhere: any = { tenantId: 'tenant-123' }
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      // Should combine with AND to preserve both conditions (flattened)
+      expect(merged.where).toEqual({
+        AND: [
+          {
+            OR: [
+              { name: { contains: 'john', mode: 'insensitive' } },
+              { email: { contains: 'john', mode: 'insensitive' } },
+            ],
+          },
+          { tenantId: 'tenant-123' },
+        ],
+      })
+    })
+
+    it('should preserve OR in contextual when merging with simple parsed', () => {
+      const parsedQuery = parseSearchParams('?status=active')
+      const contextualWhere: any = {
+        OR: [{ role: 'admin' }, { role: 'moderator' }],
+      }
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      // Should combine with AND
+      expect(merged.where).toEqual({
+        AND: [
+          { status: 'active' },
+          { OR: [{ role: 'admin' }, { role: 'moderator' }] },
+        ],
+      })
+    })
+
+    it('should preserve both OR conditions when both have logical operators', () => {
+      // This is the key test case - both have OR
+      const parsedQuery = parseSearchParams('?search=john', {
+        searchFields: ['name', 'email'],
+      })
+      const contextualWhere: any = {
+        OR: [
+          { allowedCoachTypes: { isEmpty: true } },
+          { allowedCoachTypes: { has: 'coach-type-123' } },
+        ],
+      }
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      // CRITICAL: Both OR conditions must be preserved!
+      // Flattened structure
+      expect(merged.where).toEqual({
+        AND: [
+          {
+            OR: [
+              { name: { contains: 'john', mode: 'insensitive' } },
+              { email: { contains: 'john', mode: 'insensitive' } },
+            ],
+          },
+          {
+            OR: [
+              { allowedCoachTypes: { isEmpty: true } },
+              { allowedCoachTypes: { has: 'coach-type-123' } },
+            ],
+          },
+        ],
+      })
+    })
+
+    it('should work with AND operators', () => {
+      const parsedQuery = parseSearchParams('?status=active')
+      parsedQuery.where = {
+        AND: [{ status: 'active' }, { published: true }],
+      } as any
+      const contextualWhere: any = { tenantId: 'tenant-123' }
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      // ANDs should be flattened
+      expect(merged.where).toEqual({
+        AND: [
+          { status: 'active' },
+          { published: true },
+          { tenantId: 'tenant-123' },
+        ],
+      })
+    })
+
+    it('should work with NOT operators', () => {
+      const parsedQuery = parseSearchParams('?status=active')
+      parsedQuery.where = {
+        NOT: { status: 'deleted' },
+      } as any
+      const contextualWhere: any = { tenantId: 'tenant-123' }
+      const merged = mergeWhere(contextualWhere, parsedQuery)
+
+      expect(merged.where).toEqual({
+        AND: [{ NOT: { status: 'deleted' } }, { tenantId: 'tenant-123' }],
+      })
+    })
+  })
+
+  describe('mergeQuery with smart merge', () => {
+    it('should preserve OR when using mergeQuery', () => {
+      const contextualQuery: any = {
+        where: { tenantId: 'tenant-123' },
+        orderBy: { createdAt: 'desc' as const },
+      }
+      const parsedQuery = parseSearchParams('?search=john', {
+        searchFields: ['name', 'email'],
+      })
+
+      const merged = mergeQuery(contextualQuery, parsedQuery)
+
+      // Flattened structure
+      expect(merged.where).toEqual({
+        AND: [
+          {
+            OR: [
+              { name: { contains: 'john', mode: 'insensitive' } },
+              { email: { contains: 'john', mode: 'insensitive' } },
+            ],
+          },
+          { tenantId: 'tenant-123' },
+        ],
+      })
+      expect(merged.orderBy).toEqual({ createdAt: 'desc' })
+    })
+
+    it('should work with mergeWith option in parseSearchParams', () => {
+      const query = parseSearchParams('?search=john', {
+        searchFields: ['name', 'email'],
+        mergeWith: {
+          where: { tenantId: 'tenant-123' },
+          orderBy: { createdAt: 'desc' as const },
+        },
+      })
+
+      // Flattened structure
+      expect(query.where).toEqual({
+        AND: [
+          {
+            OR: [
+              { name: { contains: 'john', mode: 'insensitive' } },
+              { email: { contains: 'john', mode: 'insensitive' } },
+            ],
+          },
+          { tenantId: 'tenant-123' },
+        ],
+      })
+      expect(query.orderBy).toEqual({ createdAt: 'desc' })
+    })
+  })
+
+  describe('Real-world scenario: Multi-tenant with permissions', () => {
+    it('should handle the reported bug case correctly', () => {
+      // Simulate the exact scenario from the bug report
+      const searchParams = { search: 'document', status: 'published' }
+      const query = parseSearchParams(searchParams, {
+        searchFields: ['title', 'description'],
+        searchKey: 'search',
+        pageSize: 20,
+        mergeWith: {
+          orderBy: { createdAt: 'desc' as const },
+        },
+      })
+
+      // Now add permission conditions
+      const permissionConditions: any = {
+        OR: [
+          { allowedCoachTypes: { isEmpty: true } },
+          { allowedCoachTypes: { has: 'coach-type-123' } },
+        ],
+      }
+
+      const finalQuery = mergeWhere(permissionConditions, query)
+
+      // The search OR and permission OR should BOTH be present
+      // After flattening, we should have 3 conditions: status, search OR, permission OR
+      expect(finalQuery.where).toHaveProperty('AND')
+      const andConditions = (finalQuery.where as any).AND
+      expect(andConditions).toHaveLength(3)
+
+      // Check status condition
+      expect(andConditions).toContainEqual({ status: 'published' })
+
+      // Find the search OR condition
+      const searchCondition = andConditions.find(
+        (c: any) => 'OR' in c && c.OR.some((or: any) => 'title' in or),
+      )
+      expect(searchCondition).toBeDefined()
+      expect(searchCondition.OR).toHaveLength(2)
+      expect(searchCondition.OR[0]).toEqual({
+        title: { contains: 'document', mode: 'insensitive' },
+      })
+      expect(searchCondition.OR[1]).toEqual({
+        description: { contains: 'document', mode: 'insensitive' },
+      })
+
+      // Find the permission OR condition
+      const permissionCondition = andConditions.find(
+        (c: any) =>
+          'OR' in c && c.OR.some((or: any) => 'allowedCoachTypes' in or),
+      )
+      expect(permissionCondition).toBeDefined()
+      expect(permissionCondition.OR).toHaveLength(2)
+    })
+  })
+})
