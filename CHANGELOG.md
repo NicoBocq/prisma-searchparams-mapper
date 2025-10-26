@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2024-10-26
+
+### Added
+- **`context` option** - New, more explicit name for merging contextual queries
+  - Replaces `mergeWith` with clearer semantics (tenant filters, permissions, default sorting)
+  - Example: `parseSearchParams(params, { context: { where: { tenantId: 'abc' } } })`
+  - Prioritizes `context` over `mergeWith` when both are provided
+- **Security warning section** in documentation
+  - Explicit guidance on validating user inputs with schema validators (Zod, Yup)
+  - Examples of proper validation before parsing
+  - Warnings about permissions, rate limiting, and field validation
+
+### Changed
+- **Smart merge for logical operators** - `mergeWhere()` and `mergeQuery()` now intelligently combine conditions
+  - Simple filters (no AND/OR/NOT): Uses spread operator (backward compatible)
+  - Complex filters (with AND/OR/NOT): Combines with AND to preserve all conditions
+  - Automatically flattens nested AND arrays to avoid `AND: [AND: [...], ...]`
+  - **Fixes critical bug** where OR conditions were overwritten during merge
+- Simplified documentation - removed excessive emojis and marketing language
+
+### Deprecated
+- **`mergeWith` option** - Use `context` instead (will be removed in v2.0.0)
+  - Still works for backward compatibility
+  - Shows deprecation warning in TypeScript
+
+### Fixed
+- **OR/AND/NOT conditions preserved during merge**
+  - Before: `mergeWhere({ OR: [permissions] }, { OR: [search] })` would only keep permissions OR
+  - After: Correctly generates `{ AND: [{ OR: [search] }, { OR: [permissions] }] }`
+  - Critical fix for multi-tenant applications with search functionality
+  - Added 13+ new tests to cover smart merge scenarios
+
 ## [1.1.2] - 2025-13-10
 
 ### Added
