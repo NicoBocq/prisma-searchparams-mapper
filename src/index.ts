@@ -41,6 +41,10 @@ export interface ParseOptions<
   logicalOperator?: LogicalOperator
   searchKey?: string // Default: 'search' (also accepts 'q' as alias)
   orderKey?: string // Default: 'order'
+  context?: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>> // Contextual query (tenant filters, default sorting, etc.)
+  /**
+   * @deprecated Use 'context' instead. Will be removed in v2.0.0
+   */
   mergeWith?: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>> // Merge with existing query
 }
 
@@ -304,9 +308,11 @@ export function parseSearchParams<
     take,
   }
 
-  // Merge with existing query if provided
-  if (options.mergeWith) {
-    return mergeQuery(options.mergeWith, result)
+  // Merge with contextual query if provided
+  // Priority: context > mergeWith (deprecated)
+  const contextualQuery = options.context || options.mergeWith
+  if (contextualQuery) {
+    return mergeQuery(contextualQuery, result)
   }
 
   return result

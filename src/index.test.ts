@@ -589,14 +589,14 @@ describe('mergeQuery (where + orderBy)', () => {
     })
   })
 
-  it('should merge using mergeWith option', () => {
+  it('should merge using context option', () => {
     const contextualQuery = {
       where: { tenantId: 'tenant-123' },
       orderBy: { createdAt: 'desc' as const },
     }
 
     const result = parseSearchParams('?status=active', {
-      mergeWith: contextualQuery,
+      context: contextualQuery,
     })
 
     expect(result).toEqual({
@@ -661,7 +661,7 @@ describe('mergeQuery (where + orderBy)', () => {
     expect(merged.take).toBe(20)
   })
 
-  it('should merge with complex contextual query using mergeWith', () => {
+  it('should merge with complex contextual query using context', () => {
     const contextualQuery = {
       where: {
         tenantId: 'tenant-123',
@@ -672,7 +672,7 @@ describe('mergeQuery (where + orderBy)', () => {
     }
 
     const result = parseSearchParams('?status=active&page=2', {
-      mergeWith: contextualQuery,
+      context: contextualQuery,
       pageSize: 20,
     })
 
@@ -689,14 +689,14 @@ describe('mergeQuery (where + orderBy)', () => {
     })
   })
 
-  it('should allow user to override orderBy with mergeWith', () => {
+  it('should allow user to override orderBy with context', () => {
     const contextualQuery = {
       where: { tenantId: 'tenant-123' },
       orderBy: { createdAt: 'desc' as const },
     }
 
     const result = parseSearchParams('?status=active&order=name_asc', {
-      mergeWith: contextualQuery,
+      context: contextualQuery,
     })
 
     expect(result.orderBy).toEqual({ name: 'asc' })
@@ -1322,10 +1322,10 @@ describe('Smart Merge (deepMergeWhere)', () => {
       expect(merged.orderBy).toEqual({ createdAt: 'desc' })
     })
 
-    it('should work with mergeWith option in parseSearchParams', () => {
+    it('should work with context option in parseSearchParams', () => {
       const query = parseSearchParams('?search=john', {
         searchFields: ['name', 'email'],
-        mergeWith: {
+        context: {
           where: { tenantId: 'tenant-123' },
           orderBy: { createdAt: 'desc' as const },
         },
@@ -1345,6 +1345,47 @@ describe('Smart Merge (deepMergeWhere)', () => {
       })
       expect(query.orderBy).toEqual({ createdAt: 'desc' })
     })
+
+    it('should still work with deprecated mergeWith for backward compatibility', () => {
+      const query = parseSearchParams('?search=john', {
+        searchFields: ['name', 'email'],
+        mergeWith: {
+          where: { tenantId: 'tenant-123' },
+          orderBy: { createdAt: 'desc' as const },
+        },
+      })
+
+      // Should work exactly like context
+      expect(query.where).toEqual({
+        AND: [
+          {
+            OR: [
+              { name: { contains: 'john', mode: 'insensitive' } },
+              { email: { contains: 'john', mode: 'insensitive' } },
+            ],
+          },
+          { tenantId: 'tenant-123' },
+        ],
+      })
+      expect(query.orderBy).toEqual({ createdAt: 'desc' })
+    })
+
+    it('should prioritize context over mergeWith when both are provided', () => {
+      const query = parseSearchParams('?status=active', {
+        context: {
+          where: { tenantId: 'context-tenant' },
+        },
+        mergeWith: {
+          where: { tenantId: 'mergeWith-tenant' },
+        },
+      })
+
+      // context should win
+      expect(query.where).toEqual({
+        status: 'active',
+        tenantId: 'context-tenant',
+      })
+    })
   })
 
   describe('Real-world scenario: Multi-tenant with permissions', () => {
@@ -1355,7 +1396,7 @@ describe('Smart Merge (deepMergeWhere)', () => {
         searchFields: ['title', 'description'],
         searchKey: 'search',
         pageSize: 20,
-        mergeWith: {
+        context: {
           orderBy: { createdAt: 'desc' as const },
         },
       })
