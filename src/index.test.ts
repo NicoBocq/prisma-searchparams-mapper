@@ -154,6 +154,67 @@ describe('toSearchParams', () => {
     const params = toSearchParams({ skip: 20, take: 10 })
     expect(params.get('page')).toBe('3')
   })
+
+  it('should convert nested relations to dot notation', () => {
+    const params = toSearchParams({
+      where: { customer: { name: 'John' } },
+    })
+    expect(params.get('customer.name')).toBe('John')
+  })
+
+  it('should convert deeply nested relations', () => {
+    const params = toSearchParams({
+      where: { user: { profile: { bio: 'developer' } } },
+    })
+    expect(params.get('user.profile.bio')).toBe('developer')
+  })
+
+  it('should convert nested relations with operators', () => {
+    const params = toSearchParams({
+      where: { customer: { email: { contains: '@example.com' } } },
+    })
+    expect(params.get('customer.email_contains')).toBe('@example.com')
+  })
+
+  it('should ignore mode in operators', () => {
+    const params = toSearchParams({
+      where: { name: { contains: 'john', mode: 'insensitive' } },
+    })
+    expect(params.get('name_contains')).toBe('john')
+    expect(params.has('name_mode')).toBe(false)
+  })
+
+  it('should handle mixed nested and simple fields', () => {
+    const params = toSearchParams({
+      where: {
+        status: 'active',
+        customer: { name: 'John', email: { contains: '@test.com' } },
+      },
+    })
+    expect(params.get('status')).toBe('active')
+    expect(params.get('customer.name')).toBe('John')
+    expect(params.get('customer.email_contains')).toBe('@test.com')
+  })
+
+  it('should skip AND/OR/NOT logical operators', () => {
+    const params = toSearchParams({
+      where: {
+        AND: [{ status: 'active' }, { role: 'admin' }],
+        OR: [{ name: 'John' }],
+      },
+    })
+    // AND/OR cannot be represented in URL, should be skipped
+    expect(params.toString()).toBe('')
+  })
+
+  it('should convert multiple orderBy', () => {
+    const params = toSearchParams({
+      orderBy: [{ createdAt: 'desc' }, { name: 'asc' }],
+    })
+    const orders = params.getAll('order')
+    expect(orders).toContain('createdAt_desc')
+    expect(orders).toContain('name_asc')
+  })
 })
 
 describe('parseNestedRelations', () => {
@@ -1056,6 +1117,30 @@ describe('Sorting (orderBy)', () => {
   it('should work with object input and colon', () => {
     const result = parseSearchParams({ order: 'name:desc' })
     expect(result.orderBy).toEqual({ name: 'desc' })
+  })
+
+  it('should parse multiple orderBy with CSV format', () => {
+    const result = parseSearchParams('?order=createdAt_desc,name_asc')
+    expect(result.orderBy).toEqual([{ createdAt: 'desc' }, { name: 'asc' }])
+  })
+
+  it('should parse multiple orderBy with repeated params', () => {
+    const params = new URLSearchParams()
+    params.append('order', 'createdAt_desc')
+    params.append('order', 'name_asc')
+    const result = parseSearchParams(params)
+    expect(result.orderBy).toEqual([{ createdAt: 'desc' }, { name: 'asc' }])
+  })
+
+  it('should parse multiple orderBy with mixed separators', () => {
+    const result = parseSearchParams('?order=createdAt:desc,name_asc')
+    expect(result.orderBy).toEqual([{ createdAt: 'desc' }, { name: 'asc' }])
+  })
+
+  it('should return single object for single orderBy', () => {
+    const result = parseSearchParams('?order=createdAt_desc')
+    expect(result.orderBy).toEqual({ createdAt: 'desc' })
+    expect(Array.isArray(result.orderBy)).toBe(false)
   })
 })
 

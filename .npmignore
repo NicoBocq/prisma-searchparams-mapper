@@ -1,10 +1,26 @@
+# Source files
 src/
+*.test.ts
+
+# Examples
 examples.ts
 examples-typesafe.ts
+
+# Config files
 tsconfig.json
+biome.json
 .vscode/
-*.test.ts
+.husky/
+.github/
+
+# Documentation (README.md is kept for npm)
+CONTRIBUTING.md
+AI_USAGE.md
+RELEASE.md
+CHANGELOG.md
+CLAUDE.md
+
+# Dev files
 coverage/
 .env
 .env.local
-CONTRIBUTING.md

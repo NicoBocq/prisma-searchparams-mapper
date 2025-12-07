@@ -3,9 +3,11 @@
  *
  * This file demonstrates how to use the library with actual Prisma types.
  * Uncomment and adapt to your Prisma schema.
+ *
+ * To use these examples, uncomment the code blocks and add:
+ * import { parseSearchParams, createParser } from './src/index'
+ * import { Prisma } from '@prisma/client'
  */
-
-import { createParser, parseSearchParams } from './src/index'
 
 // Example 1: Using generic type parameter directly
 // Assuming you have a Prisma schema with a User model

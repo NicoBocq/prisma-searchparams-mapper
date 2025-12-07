@@ -76,7 +76,7 @@ export function parseSearchParams<
 
   // Using Record for dynamic property access, will be cast to TWhereInput at the end
   const where: Record<string, any> = {}
-  const orderBy: Record<string, 'asc' | 'desc'> = {}
+  const orderByList: Array<Record<string, 'asc' | 'desc'>> = []
   let take: number | undefined
   let skip: number | undefined
   let pageSize = options.pageSize || 10
@@ -118,6 +118,25 @@ export function parseSearchParams<
     take = pageSize
   }
 
+  // Handle orderBy (supports multiple: ?order=a_desc&order=b_asc or ?order=a_desc,b_asc)
+  const orderValues = params.getAll(orderKey)
+  orderValues.forEach((orderValue) => {
+    // Support CSV format: order=createdAt_desc,name_asc
+    const parts = orderValue.includes(',')
+      ? orderValue.split(',')
+      : [orderValue]
+    parts.forEach((part) => {
+      const trimmed = part.trim()
+      if (!trimmed) return
+      // Support both underscore and colon separators: updatedAt_asc or updatedAt:asc
+      const separator = trimmed.includes(':') ? ':' : '_'
+      const [field, dir] = trimmed.split(separator)
+      if (field) {
+        orderByList.push({ [field]: dir === 'desc' ? 'desc' : 'asc' })
+      }
+    })
+  })
+
   params.forEach((value, key) => {
     // Skip pagination params (already handled)
     if (['skip', 'take', 'page', 'pageSize'].includes(key)) {
@@ -131,11 +150,8 @@ export function parseSearchParams<
     }
 
     // order (custom key or default 'order')
+    // Skip here - handled separately to support multiple values
     if (key === orderKey) {
-      // Support both underscore and colon separators: updatedAt_asc or updatedAt:asc
-      const separator = value.includes(':') ? ':' : '_'
-      const [field, dir] = value.split(separator)
-      orderBy[field] = dir === 'desc' ? 'desc' : 'asc'
       return
     }
 
@@ -300,10 +316,17 @@ export function parseSearchParams<
     }
   }
 
+  // Determine orderBy format: single object or array
+  let finalOrderBy: TOrderByInput | TOrderByInput[] | undefined
+  if (orderByList.length === 1) {
+    finalOrderBy = orderByList[0] as TOrderByInput
+  } else if (orderByList.length > 1) {
+    finalOrderBy = orderByList as TOrderByInput[]
+  }
+
   const result: SearchParamsQuery<TWhereInput, TOrderByInput> = {
     where: where as TWhereInput,
-    orderBy:
-      Object.keys(orderBy).length > 0 ? (orderBy as TOrderByInput) : undefined,
+    orderBy: finalOrderBy,
     skip,
     take,
   }
@@ -338,28 +361,69 @@ export function toSearchParams<
 ): URLSearchParams {
   const params = new URLSearchParams()
 
-  // where filters
-  if (query.where) {
-    Object.entries(query.where).forEach(([key, value]) => {
+  // Helper to flatten nested objects to dot notation
+  function flattenWhere(obj: Record<string, any>, prefix = ''): void {
+    Object.entries(obj).forEach(([key, value]) => {
+      // Skip logical operators (AND, OR, NOT) - they can't be represented in URL
+      if (['AND', 'OR', 'NOT'].includes(key)) {
+        return
+      }
+
+      const fullKey = prefix ? `${prefix}.${key}` : key
+
+      if (value === null || value === undefined) {
+        return
+      }
+
       if (
         typeof value === 'object' &&
         value !== null &&
         !Array.isArray(value)
       ) {
-        // operators
-        Object.entries(value).forEach(([op, val]) => {
-          if (Array.isArray(val)) {
-            params.set(`${key}_${op}`, val.join(','))
-          } else {
-            params.set(`${key}_${op}`, String(val))
-          }
-        })
+        // Check if it's an operator object (contains, gte, in, etc.)
+        const keys = Object.keys(value)
+        const operators = [
+          'in',
+          'notIn',
+          'not',
+          'gte',
+          'lte',
+          'gt',
+          'lt',
+          'contains',
+          'startsWith',
+          'endsWith',
+          'mode',
+        ]
+        const hasOperator = keys.some((k) => operators.includes(k))
+
+        if (hasOperator) {
+          // It's an operator object
+          Object.entries(value).forEach(([op, val]) => {
+            // Skip 'mode' - it's not representable in URL params
+            if (op === 'mode') return
+
+            if (Array.isArray(val)) {
+              params.set(`${fullKey}_${op}`, val.join(','))
+            } else if (val !== null && val !== undefined) {
+              params.set(`${fullKey}_${op}`, String(val))
+            }
+          })
+        } else {
+          // It's a nested relation - recurse
+          flattenWhere(value, fullKey)
+        }
       } else if (Array.isArray(value)) {
-        params.set(key, value.join(','))
+        params.set(fullKey, value.join(','))
       } else {
-        params.set(key, String(value))
+        params.set(fullKey, String(value))
       }
     })
+  }
+
+  // where filters
+  if (query.where) {
+    flattenWhere(query.where as Record<string, any>)
   }
 
   // orderBy
