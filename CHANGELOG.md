@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2024-12-07
+
+### Added
+- **Multiple orderBy support** - Sort by multiple fields in a single query
+  - CSV format: `?order=createdAt_desc,name_asc`
+  - Repeated params: `?order=createdAt_desc&order=name_asc`
+  - Returns array when multiple, single object when one (backward compatible)
+- **CI workflow** - Added GitHub Actions workflow for PRs (lint + tests + build)
+
+### Changed
+- **`toSearchParams()` now supports nested relations**
+  - `{ customer: { name: 'John' } }` → `customer.name=John`
+  - `{ customer: { email: { contains: '@test.com' } } }` → `customer.email_contains=@test.com`
+  - Properly skips `mode` property (not representable in URL)
+  - Skips AND/OR/NOT logical operators (not representable in URL)
+
+### Fixed
+- `toSearchParams()` now correctly converts nested Prisma where clauses back to URL params
+
+### Removed
+- Removed redundant `publish.yml` workflow (release.yml handles npm publishing)
+
+### Chores
+- Updated `.npmignore` to exclude dev files from npm package
+- Fixed unused import in `examples-typesafe.ts`
+- Added `engines` field in `package.json` (node >= 18)
+
 ## [1.1.3] - 2024-10-26
 
 ### Added

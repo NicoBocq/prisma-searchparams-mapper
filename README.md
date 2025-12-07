@@ -205,6 +205,14 @@ const query5 = parseSearchParams('?status=active&search=john', {
 const query0 = parseSearchParams('?order=createdAt_desc'); // underscore
 const query0b = parseSearchParams('?order=createdAt:desc'); // colon (both work!)
 
+// Multiple orderBy (CSV format)
+const query0c = parseSearchParams('?order=createdAt_desc,name_asc');
+// Result: { orderBy: [{ createdAt: 'desc' }, { name: 'asc' }] }
+
+// Multiple orderBy (repeated params)
+const query0d = parseSearchParams('?order=createdAt_desc&order=name_asc');
+// Result: { orderBy: [{ createdAt: 'desc' }, { name: 'asc' }] }
+
 // Page-based pagination (classic UI with page numbers)
 const query1 = parseSearchParams('?order=createdAt_desc&page=2');
 // Result: { 
