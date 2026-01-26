@@ -118,6 +118,12 @@ export function parseSearchParams<
     take = pageSize
   }
 
+  // If pageSize is explicitly set in options but no pagination params provided,
+  // use it as the default take value (useful for infinite scroll)
+  if (take === undefined && options.pageSize !== undefined) {
+    take = pageSize
+  }
+
   // Handle orderBy (supports multiple: ?order=a_desc&order=b_asc or ?order=a_desc,b_asc)
   const orderValues = params.getAll(orderKey)
   orderValues.forEach((orderValue) => {
@@ -178,7 +184,10 @@ export function parseSearchParams<
         // Has operator: customer.email_contains
         const [, field, op] = operatorMatch
         const vals = value.includes(',')
-          ? value.split(',').map(normalizeValue)
+          ? value
+              .split(',')
+              .filter((v) => v !== '')
+              .map(normalizeValue)
           : [normalizeValue(value)]
         const operatorValue = ['in', 'notIn'].includes(op) ? vals : vals[0]
         const condition: any = { [op]: operatorValue }
@@ -210,7 +219,10 @@ export function parseSearchParams<
     if (operatorMatch) {
       const [, field, op] = operatorMatch
       const vals = value.includes(',')
-        ? value.split(',').map(normalizeValue)
+        ? value
+            .split(',')
+            .filter((v) => v !== '')
+            .map(normalizeValue)
         : [normalizeValue(value)]
 
       // in and notIn use array, others use single value
@@ -258,7 +270,12 @@ export function parseSearchParams<
 
     // CSV -> in
     if (value.includes(',')) {
-      where[key] = { in: value.split(',').map(normalizeValue) }
+      where[key] = {
+        in: value
+          .split(',')
+          .filter((v) => v !== '')
+          .map(normalizeValue),
+      }
       return
     }
 

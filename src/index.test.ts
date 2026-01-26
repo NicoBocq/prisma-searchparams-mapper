@@ -323,6 +323,12 @@ describe('Page-based pagination', () => {
     expect(result.take).toBe(20)
   })
 
+  it('should use pageSize from options as default take (infinite scroll)', () => {
+    const result = parseSearchParams('?status=active', { pageSize: 20 })
+    expect(result.skip).toBeUndefined()
+    expect(result.take).toBe(20)
+  })
+
   it('should use pageSize from URL params', () => {
     const result = parseSearchParams('?page=2&pageSize=50')
     expect(result.skip).toBe(50)
@@ -901,10 +907,24 @@ describe('Edge cases', () => {
     })
   })
 
-  it('should handle CSV with empty values', () => {
+  it('should handle CSV with empty values (filter them out)', () => {
     const result = parseSearchParams('?role=admin,,user')
     expect(result.where).toEqual({
-      role: { in: ['admin', '', 'user'] },
+      role: { in: ['admin', 'user'] },
+    })
+  })
+
+  it('should handle trailing comma in CSV (filter empty values)', () => {
+    const result = parseSearchParams('?purchasePrice_in=5,')
+    expect(result.where).toEqual({
+      purchasePrice: { in: [5] },
+    })
+  })
+
+  it('should handle leading comma in CSV (filter empty values)', () => {
+    const result = parseSearchParams('?status_in=,active,pending')
+    expect(result.where).toEqual({
+      status: { in: ['active', 'pending'] },
     })
   })
 

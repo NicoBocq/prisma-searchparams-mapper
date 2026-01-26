@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2026-01-26
+
+### Fixed
+- **`pageSize` option now works without `page` param** - Essential for infinite scroll
+  - Before: `parseSearchParams('?status=active', { pageSize: 20 })` → `{ take: undefined }`
+  - After: `parseSearchParams('?status=active', { pageSize: 20 })` → `{ take: 20 }`
+- **Empty values in CSV are now filtered out** - Prevents Prisma type errors
+  - Before: `?price_in=5,` → `{ in: [5, ''] }` (Prisma rejects empty string for numeric fields)
+  - After: `?price_in=5,` → `{ in: [5] }`
+  - Also handles leading/middle empty values: `?status_in=,active,,pending,` → `{ in: ['active', 'pending'] }`
+
 ## [1.1.4] - 2024-12-07
 
 ### Added
