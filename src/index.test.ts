@@ -39,13 +39,11 @@ describe('parseSearchParams', () => {
     expect(result.where).toEqual({ status: 'active' })
   })
 
-  it('should handle mixed types in object input', () => {
-    const result = parseSearchParams({
-      name: 'John',
-      age: '30',
-      isActive: 'true',
-      score: '95.5',
-    })
+  it('should handle mixed types in object input with fields config', () => {
+    const result = parseSearchParams(
+      { name: 'John', age: '30', isActive: 'true', score: '95.5' },
+      { fields: { age: 'number', isActive: 'boolean', score: 'number' } },
+    )
     expect(result.where).toEqual({
       name: 'John',
       age: 30,
@@ -54,19 +52,34 @@ describe('parseSearchParams', () => {
     })
   })
 
-  it('should handle array of numbers in object input', () => {
-    const result = parseSearchParams({ age_in: ['18', '25', '30'] })
+  it('should keep all values as strings by default (no fields config)', () => {
+    const result = parseSearchParams({
+      name: 'John',
+      age: '30',
+      isActive: 'true',
+    })
+    expect(result.where).toEqual({ name: 'John', age: '30', isActive: 'true' })
+  })
+
+  it('should handle array of numbers in object input with fields config', () => {
+    const result = parseSearchParams(
+      { age_in: ['18', '25', '30'] },
+      { fields: { age: 'number' } },
+    )
     expect(result.where).toEqual({ age: { in: [18, 25, 30] } })
   })
 
-  it('should handle array of booleans in object input', () => {
-    const result = parseSearchParams({ isActive: ['true', 'false'] })
+  it('should handle array of booleans in object input with fields config', () => {
+    const result = parseSearchParams(
+      { isActive: ['true', 'false'] },
+      { fields: { isActive: 'boolean' } },
+    )
     expect(result.where).toEqual({ isActive: { in: [true, false] } })
   })
 
-  it('should keep id fields as strings by default', () => {
+  it('should keep numeric-looking IDs as strings by default', () => {
     const result = parseSearchParams('?id=1234568&userId=9876543')
-    expect(result.where).toEqual({ id: 1234568, userId: 9876543 })
+    expect(result.where).toEqual({ id: '1234568', userId: '9876543' })
   })
 
   it('should keep UUID-like IDs as strings', () => {
@@ -79,13 +92,17 @@ describe('parseSearchParams', () => {
     expect(result.where).toEqual({ id: 'clx123abc456def789' })
   })
 
-  it('should parse boolean values', () => {
-    const result = parseSearchParams('?isActive=true&isDeleted=false')
+  it('should cast boolean values with fields config', () => {
+    const result = parseSearchParams('?isActive=true&isDeleted=false', {
+      fields: { isActive: 'boolean', isDeleted: 'boolean' },
+    })
     expect(result.where).toEqual({ isActive: true, isDeleted: false })
   })
 
-  it('should parse numeric values', () => {
-    const result = parseSearchParams('?age=25&score=100')
+  it('should cast numeric values with fields config', () => {
+    const result = parseSearchParams('?age=25&score=100', {
+      fields: { age: 'number', score: 'number' },
+    })
     expect(result.where).toEqual({ age: 25, score: 100 })
   })
 
@@ -99,8 +116,10 @@ describe('parseSearchParams', () => {
     expect(result.where).toEqual({ status: { in: ['active', 'pending'] } })
   })
 
-  it('should parse comparison operators', () => {
-    const result = parseSearchParams('?age_gte=18&age_lte=65')
+  it('should parse comparison operators with fields config', () => {
+    const result = parseSearchParams('?age_gte=18&age_lte=65', {
+      fields: { age: 'number' },
+    })
     expect(result.where).toEqual({ age: { gte: 18, lte: 65 } })
   })
 
@@ -231,6 +250,13 @@ describe('toSearchParams', () => {
 describe('parseNestedRelations', () => {
   it('should parse nested relations with dot notation', () => {
     const result = parseNestedRelations('?user.name=John&user.age=30')
+    expect(result).toEqual({ user: { name: 'John', age: '30' } })
+  })
+
+  it('should cast nested fields with fields config', () => {
+    const result = parseNestedRelations('?user.name=John&user.age=30', {
+      'user.age': 'number',
+    })
     expect(result).toEqual({ user: { name: 'John', age: 30 } })
   })
 
@@ -298,6 +324,7 @@ describe('Type-safe parsing', () => {
   it('should work with generic type parameter', () => {
     const result = parseSearchParams<MockUserWhereInput>(
       '?email_contains=test&age_gte=18',
+      { fields: { age: 'number' } },
     )
     expect(result.where).toEqual({
       email: { contains: 'test', mode: 'insensitive' },
@@ -441,8 +468,10 @@ describe('Search mode and operators', () => {
     })
   })
 
-  it('should support gt and lt operators', () => {
-    const result = parseSearchParams('?age_gt=18&score_lt=100')
+  it('should support gt and lt operators with fields config', () => {
+    const result = parseSearchParams('?age_gt=18&score_lt=100', {
+      fields: { age: 'number', score: 'number' },
+    })
 
     expect(result.where).toEqual({
       age: { gt: 18 },
@@ -817,15 +846,19 @@ describe('Edge cases', () => {
     })
   })
 
-  it('should handle multiple operators on same field', () => {
-    const result = parseSearchParams('?age_gte=18&age_lte=65')
+  it('should handle multiple operators on same field with fields config', () => {
+    const result = parseSearchParams('?age_gte=18&age_lte=65', {
+      fields: { age: 'number' },
+    })
     expect(result.where).toEqual({
       age: { gte: 18, lte: 65 },
     })
   })
 
-  it('should handle conflicting operators on same field', () => {
-    const result = parseSearchParams('?age_gte=18&age_gt=20')
+  it('should handle conflicting operators on same field with fields config', () => {
+    const result = parseSearchParams('?age_gte=18&age_gt=20', {
+      fields: { age: 'number' },
+    })
     expect(result.where).toEqual({
       age: { gte: 18, gt: 20 },
     })
@@ -926,7 +959,9 @@ describe('Edge cases', () => {
   })
 
   it('should handle trailing comma in CSV (filter empty values)', () => {
-    const result = parseSearchParams('?purchasePrice_in=5,')
+    const result = parseSearchParams('?purchasePrice_in=5,', {
+      fields: { purchasePrice: 'number' },
+    })
     expect(result.where).toEqual({
       purchasePrice: { in: [5] },
     })
@@ -1002,33 +1037,37 @@ describe('Edge cases', () => {
     expect(result.where).toHaveProperty('OR')
   })
 
-  it('should handle boolean string values', () => {
-    const result = parseSearchParams('?isActive=true&isDeleted=false')
+  it('should cast boolean string values with fields config', () => {
+    const result = parseSearchParams('?isActive=true&isDeleted=false', {
+      fields: { isActive: 'boolean', isDeleted: 'boolean' },
+    })
     expect(result.where).toEqual({
       isActive: true,
       isDeleted: false,
     })
   })
 
-  it('should handle numeric string values', () => {
-    const result = parseSearchParams('?age=25&score=100.5')
+  it('should cast numeric string values with fields config', () => {
+    const result = parseSearchParams('?age=25&score=100.5', {
+      fields: { age: 'number', score: 'number' },
+    })
     expect(result.where).toEqual({
       age: 25,
       score: 100.5,
     })
   })
 
-  it('should trim and parse string that looks like number', () => {
-    const result = parseSearchParams('?code= 123 ')
-    expect(result.where).toEqual({
-      code: 123, // trimmed and parsed as number
+  it('should cast number field with Number() (trims whitespace)', () => {
+    const result = parseSearchParams('?code= 123 ', {
+      fields: { code: 'number' },
     })
+    expect(result.where).toEqual({ code: 123 })
   })
 
-  it('should handle mixed types in CSV', () => {
+  it('should keep all CSV values as strings without fields config', () => {
     const result = parseSearchParams('?values=true,123,text,false')
     expect(result.where).toEqual({
-      values: { in: [true, 123, 'text', false] },
+      values: { in: ['true', '123', 'text', 'false'] },
     })
   })
 
@@ -1078,8 +1117,10 @@ describe('not and notIn operators', () => {
     })
   })
 
-  it('should combine not with other operators', () => {
-    const result = parseSearchParams('?age_gte=18&status_not=deleted')
+  it('should combine not with other operators with fields config', () => {
+    const result = parseSearchParams('?age_gte=18&status_not=deleted', {
+      fields: { age: 'number' },
+    })
     expect(result.where).toEqual({
       age: { gte: 18 },
       status: { not: 'deleted' },
@@ -1093,15 +1134,19 @@ describe('not and notIn operators', () => {
     })
   })
 
-  it('should parse not with boolean', () => {
-    const result = parseSearchParams('?isDeleted_not=true')
+  it('should cast not with boolean using fields config', () => {
+    const result = parseSearchParams('?isDeleted_not=true', {
+      fields: { isDeleted: 'boolean' },
+    })
     expect(result.where).toEqual({
       isDeleted: { not: true },
     })
   })
 
-  it('should parse not with number', () => {
-    const result = parseSearchParams('?age_not=25')
+  it('should cast not with number using fields config', () => {
+    const result = parseSearchParams('?age_not=25', {
+      fields: { age: 'number' },
+    })
     expect(result.where).toEqual({
       age: { not: 25 },
     })
@@ -1249,8 +1294,13 @@ describe('Nested Relations (automatic)', () => {
     })
   })
 
-  it('should parse nested with comparison operators', () => {
-    const result = parseSearchParams('?order.total_gte=100&order.total_lte=500')
+  it('should parse nested with comparison operators with fields config', () => {
+    const result = parseSearchParams(
+      '?order.total_gte=100&order.total_lte=500',
+      {
+        fields: { 'order.total': 'number' },
+      },
+    )
     expect(result.where).toEqual({
       order: {
         total: { gte: 100, lte: 500 },

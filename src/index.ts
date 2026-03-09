@@ -30,6 +30,7 @@ export type PrismaQuery<
 
 export type SearchMode = 'default' | 'insensitive'
 export type LogicalOperator = 'AND' | 'OR'
+export type FieldType = 'string' | 'number' | 'boolean'
 
 export interface ParseOptions<
   TWhereInput = PrismaWhere,
@@ -41,6 +42,7 @@ export interface ParseOptions<
   logicalOperator?: LogicalOperator
   searchKey?: string // Default: 'search' (also accepts 'q' as alias)
   orderKey?: string // Default: 'order'
+  fields?: Record<string, FieldType> // Explicit field types for casting (e.g. { age: 'number', active: 'boolean' })
   context?: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>> // Contextual query (tenant filters, default sorting, etc.)
   /**
    * @deprecated Use 'context' instead. Will be removed in v2.0.0
@@ -73,6 +75,8 @@ export function parseSearchParams<
       }
     })
   }
+
+  const fields = options.fields || {}
 
   // Using Record for dynamic property access, will be cast to TWhereInput at the end
   const where: Record<string, any> = {}
@@ -189,14 +193,16 @@ export function parseSearchParams<
           'startsWith',
           'endsWith',
         ].includes(op)
+        const fieldPath = [...parts.slice(0, -1), field].join('.')
+        const fieldType = fields[fieldPath] ?? 'string'
         const operatorValue = isArrayOperator
           ? value
               .split(',')
               .filter((v) => v !== '')
-              .map((v) => (isStringOperator ? v : normalizeValue(v)))
+              .map((v) => (isStringOperator ? v : castValue(v, fieldType)))
           : isStringOperator
             ? value
-            : normalizeValue(value)
+            : castValue(value, fieldType)
         const condition: any = { [op]: operatorValue }
 
         if (
@@ -214,7 +220,8 @@ export function parseSearchParams<
         }
       } else {
         // No operator: customer.name
-        current[lastPart] = normalizeValue(value)
+        const fieldPath = parts.join('.')
+        current[lastPart] = castValue(value, fields[fieldPath] ?? 'string')
       }
       return
     }
@@ -229,14 +236,15 @@ export function parseSearchParams<
       const isStringOperator = ['contains', 'startsWith', 'endsWith'].includes(
         op,
       )
+      const fieldType = fields[field] ?? 'string'
       const operatorValue = isArrayOperator
         ? value
             .split(',')
             .filter((v) => v !== '')
-            .map((v) => (isStringOperator ? v : normalizeValue(v)))
+            .map((v) => (isStringOperator ? v : castValue(v, fieldType)))
         : isStringOperator
           ? value
-          : normalizeValue(value)
+          : castValue(value, fieldType)
       const condition: any = { [op]: operatorValue }
 
       // Add mode for string operations
@@ -258,9 +266,12 @@ export function parseSearchParams<
 
     // multi-values same key -> in
     const existing = where[key]
+    const fieldType = fields[key] ?? 'string'
     if (existing) {
       if (Array.isArray(existing)) {
-        ;(existing as (string | number | boolean)[]).push(normalizeValue(value))
+        ;(existing as (string | number | boolean)[]).push(
+          castValue(value, fieldType),
+        )
       } else if (
         typeof existing === 'object' &&
         existing !== null &&
@@ -268,11 +279,14 @@ export function parseSearchParams<
       ) {
         const inValue = (existing as PrismaOperator).in
         if (Array.isArray(inValue)) {
-          inValue.push(normalizeValue(value))
+          inValue.push(castValue(value, fieldType))
         }
       } else {
         where[key] = {
-          in: [existing as string | number | boolean, normalizeValue(value)],
+          in: [
+            existing as string | number | boolean,
+            castValue(value, fieldType),
+          ],
         }
       }
       return
@@ -284,13 +298,13 @@ export function parseSearchParams<
         in: value
           .split(',')
           .filter((v) => v !== '')
-          .map(normalizeValue),
+          .map((v) => castValue(v, fieldType)),
       }
       return
     }
 
     // simple value
-    where[key] = normalizeValue(value)
+    where[key] = castValue(value, fieldType)
   })
 
   // Handle global search across multiple fields
@@ -368,12 +382,10 @@ export function parseSearchParams<
   return result
 }
 
-// helper
-function normalizeValue(v: string): string | number | boolean {
-  if (v === 'true') return true
-  if (v === 'false') return false
-  const num = Number(v)
-  if (!Number.isNaN(num) && v.trim() !== '') return num
+// helpers
+function castValue(v: string, type: FieldType): string | number | boolean {
+  if (type === 'number') return Number(v)
+  if (type === 'boolean') return v === 'true'
   return v
 }
 
@@ -487,6 +499,7 @@ export function parseNestedRelations(
     | string
     | URLSearchParams
     | Record<string, string | string[] | undefined>,
+  fields: Record<string, FieldType> = {},
 ): Record<string, any> {
   let params: URLSearchParams
 
@@ -512,7 +525,7 @@ export function parseNestedRelations(
 
       parts.forEach((part, index) => {
         if (index === parts.length - 1) {
-          current[part] = normalizeValue(value)
+          current[part] = castValue(value, fields[key] ?? 'string')
         } else {
           current[part] = current[part] || {}
           current = current[part]
@@ -540,7 +553,7 @@ export function mergeRelations<TWhereInput = PrismaWhere>(
 export function createParser<
   TWhereInput = PrismaWhere,
   TOrderByInput = Record<string, 'asc' | 'desc'>,
->() {
+>(creatorOptions?: ParseOptions<TWhereInput, TOrderByInput>) {
   return {
     parse: (
       input:
@@ -548,7 +561,11 @@ export function createParser<
         | URLSearchParams
         | Record<string, string | string[] | undefined>,
       options?: ParseOptions<TWhereInput, TOrderByInput>,
-    ) => parseSearchParams<TWhereInput, TOrderByInput>(input, options),
+    ) =>
+      parseSearchParams<TWhereInput, TOrderByInput>(input, {
+        ...creatorOptions,
+        ...options,
+      }),
     toParams: (query: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>>) =>
       toSearchParams<TWhereInput, TOrderByInput>(query),
     parseRelations: (
@@ -556,7 +573,7 @@ export function createParser<
         | string
         | URLSearchParams
         | Record<string, string | string[] | undefined>,
-    ) => parseNestedRelations(input),
+    ) => parseNestedRelations(input, creatorOptions?.fields),
     mergeRelations: (where: TWhereInput, relations: Record<string, any>) =>
       mergeRelations<TWhereInput>(where, relations),
   }
