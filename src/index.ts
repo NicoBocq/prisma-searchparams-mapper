@@ -183,13 +183,20 @@ export function parseSearchParams<
       if (operatorMatch) {
         // Has operator: customer.email_contains
         const [, field, op] = operatorMatch
-        const vals = value.includes(',')
+        const isArrayOperator = ['in', 'notIn'].includes(op)
+        const isStringOperator = [
+          'contains',
+          'startsWith',
+          'endsWith',
+        ].includes(op)
+        const operatorValue = isArrayOperator
           ? value
               .split(',')
               .filter((v) => v !== '')
-              .map(normalizeValue)
-          : [normalizeValue(value)]
-        const operatorValue = ['in', 'notIn'].includes(op) ? vals : vals[0]
+              .map((v) => (isStringOperator ? v : normalizeValue(v)))
+          : isStringOperator
+            ? value
+            : normalizeValue(value)
         const condition: any = { [op]: operatorValue }
 
         if (
@@ -218,15 +225,18 @@ export function parseSearchParams<
     )
     if (operatorMatch) {
       const [, field, op] = operatorMatch
-      const vals = value.includes(',')
+      const isArrayOperator = ['in', 'notIn'].includes(op)
+      const isStringOperator = ['contains', 'startsWith', 'endsWith'].includes(
+        op,
+      )
+      const operatorValue = isArrayOperator
         ? value
             .split(',')
             .filter((v) => v !== '')
-            .map(normalizeValue)
-        : [normalizeValue(value)]
-
-      // in and notIn use array, others use single value
-      const operatorValue = ['in', 'notIn'].includes(op) ? vals : vals[0]
+            .map((v) => (isStringOperator ? v : normalizeValue(v)))
+        : isStringOperator
+          ? value
+          : normalizeValue(value)
       const condition: any = { [op]: operatorValue }
 
       // Add mode for string operations

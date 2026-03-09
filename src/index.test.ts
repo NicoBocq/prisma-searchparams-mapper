@@ -111,6 +111,17 @@ describe('parseSearchParams', () => {
     })
   })
 
+  it('should not coerce numeric/boolean-like strings for string operators', () => {
+    const result = parseSearchParams(
+      '?name_contains=123&email_startsWith=true&code_endsWith=001',
+    )
+    expect(result.where).toEqual({
+      name: { contains: '123', mode: 'insensitive' },
+      email: { startsWith: 'true', mode: 'insensitive' },
+      code: { endsWith: '001', mode: 'insensitive' },
+    })
+  })
+
   it('should parse orderBy', () => {
     const result = parseSearchParams('?order=createdAt_desc')
     expect(result.orderBy).toEqual({ createdAt: 'desc' })
@@ -1176,6 +1187,13 @@ describe('Nested Relations (automatic)', () => {
     const result = parseSearchParams('?customer.email_contains=@example.com')
     expect(result.where).toEqual({
       customer: { email: { contains: '@example.com', mode: 'insensitive' } },
+    })
+  })
+
+  it('should not coerce numeric values for nested string operators', () => {
+    const result = parseSearchParams('?customer.email_contains=123')
+    expect(result.where).toEqual({
+      customer: { email: { contains: '123', mode: 'insensitive' } },
     })
   })
 
