@@ -2,7 +2,8 @@ export type PrismaFilterValue =
   | string
   | number
   | boolean
-  | (string | number | boolean)[]
+  | Date
+  | (string | number | boolean | Date)[]
 
 export type PrismaOperator = {
   [operator: string]: PrismaFilterValue
@@ -30,7 +31,7 @@ export type PrismaQuery<
 
 export type SearchMode = 'default' | 'insensitive'
 export type LogicalOperator = 'AND' | 'OR'
-export type FieldType = 'string' | 'number' | 'boolean'
+export type FieldType = 'string' | 'number' | 'boolean' | 'date'
 
 export interface ParseOptions<
   TWhereInput = PrismaWhere,
@@ -383,9 +384,13 @@ export function parseSearchParams<
 }
 
 // helpers
-function castValue(v: string, type: FieldType): string | number | boolean {
+function castValue(
+  v: string,
+  type: FieldType,
+): string | number | boolean | Date {
   if (type === 'number') return Number(v)
   if (type === 'boolean') return v === 'true'
+  if (type === 'date') return new Date(v)
   return v
 }
 

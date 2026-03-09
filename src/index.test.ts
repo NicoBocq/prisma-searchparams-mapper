@@ -1102,6 +1102,46 @@ describe('Edge cases', () => {
   })
 })
 
+describe('fields config', () => {
+  it('should cast date fields with fields config', () => {
+    const result = parseSearchParams('?createdAt=2024-01-15', {
+      fields: { createdAt: 'date' },
+    })
+    expect(result.where).toEqual({ createdAt: new Date('2024-01-15') })
+  })
+
+  it('should cast date fields with comparison operators', () => {
+    const result = parseSearchParams(
+      '?createdAt_gte=2024-01-01&createdAt_lte=2024-12-31',
+      { fields: { createdAt: 'date' } },
+    )
+    expect(result.where).toEqual({
+      createdAt: { gte: new Date('2024-01-01'), lte: new Date('2024-12-31') },
+    })
+  })
+
+  it('should cast nested date fields with dot notation', () => {
+    const result = parseSearchParams('?order.createdAt_gte=2024-01-01', {
+      fields: { 'order.createdAt': 'date' },
+    })
+    expect(result.where).toEqual({
+      order: { createdAt: { gte: new Date('2024-01-01') } },
+    })
+  })
+
+  it('should work with createParser fields at creation time', () => {
+    const parser = createParser({
+      fields: { age: 'number', active: 'boolean', createdAt: 'date' },
+    })
+    const result = parser.parse('?age=25&active=true&createdAt=2024-01-15')
+    expect(result.where).toEqual({
+      age: 25,
+      active: true,
+      createdAt: new Date('2024-01-15'),
+    })
+  })
+})
+
 describe('not and notIn operators', () => {
   it('should parse not operator', () => {
     const result = parseSearchParams('?status_not=deleted')
