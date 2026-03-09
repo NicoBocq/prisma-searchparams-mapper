@@ -1129,6 +1129,20 @@ describe('fields config', () => {
     })
   })
 
+  it('should keep string as-is for invalid date values', () => {
+    const result = parseSearchParams('?createdAt=not-a-date', {
+      fields: { createdAt: 'date' },
+    })
+    expect(result.where).toEqual({ createdAt: 'not-a-date' })
+  })
+
+  it('should serialize Date back to ISO string in toSearchParams', () => {
+    const params = toSearchParams({
+      where: { createdAt: new Date('2024-01-15T00:00:00.000Z') },
+    })
+    expect(params.get('createdAt')).toBe('2024-01-15T00:00:00.000Z')
+  })
+
   it('should work with createParser fields at creation time', () => {
     const parser = createParser({
       fields: { age: 'number', active: 'boolean', createdAt: 'date' },

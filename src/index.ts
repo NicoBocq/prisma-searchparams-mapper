@@ -388,7 +388,11 @@ function castValue(
 ): string | number | boolean | Date {
   if (type === 'number') return Number(v)
   if (type === 'boolean') return v === 'true'
-  if (type === 'date') return new Date(v)
+  if (type === 'date') {
+    const d = new Date(v)
+    if (Number.isNaN(d.getTime())) return v
+    return d
+  }
   return v
 }
 
@@ -417,7 +421,9 @@ export function toSearchParams<
         return
       }
 
-      if (
+      if (value instanceof Date) {
+        params.set(fullKey, value.toISOString())
+      } else if (
         typeof value === 'object' &&
         value !== null &&
         !Array.isArray(value)
@@ -448,7 +454,10 @@ export function toSearchParams<
             if (Array.isArray(val)) {
               params.set(`${fullKey}_${op}`, val.join(','))
             } else if (val !== null && val !== undefined) {
-              params.set(`${fullKey}_${op}`, String(val))
+              params.set(
+                `${fullKey}_${op}`,
+                val instanceof Date ? val.toISOString() : String(val),
+              )
             }
           })
         } else {
@@ -458,7 +467,10 @@ export function toSearchParams<
       } else if (Array.isArray(value)) {
         params.set(fullKey, value.join(','))
       } else {
-        params.set(fullKey, String(value))
+        params.set(
+          fullKey,
+          value instanceof Date ? value.toISOString() : String(value),
+        )
       }
     })
   }
