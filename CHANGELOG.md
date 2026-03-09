@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-09
+
+### Added
+- **`fields` option** - Explicit field type casting instead of magic auto-detection
+  - `'string'` (default), `'number'`, `'boolean'`, `'date'`
+  - Dot notation for nested fields: `{ 'order.total': 'number' }`
+  - Works with all operators: `?age_gte=18` + `fields: { age: 'number' }` → `{ age: { gte: 18 } }`
+  - `createParser()` now accepts options at creation time: `createParser({ fields: { age: 'number' } })`
+  - `parseNestedRelations()` now accepts optional `fields` as second param
+- **`date` FieldType** - Casts string to `Date` via `new Date(value)`
+  - Falls back to string if value is not a valid date
+  - `toSearchParams()` serializes `Date` values as ISO strings
+
+### Changed
+- **BREAKING: All values are strings by default** - Auto-coercion removed
+  - Before: `?age=25` → `{ age: 25 }` (number, magic)
+  - After: `?age=25` → `{ age: '25' }` (string)
+  - Migrate: add `fields: { age: 'number' }` to restore number casting
+- **BREAKING: `mergeWith` option removed** - Use `context` instead
+  - Before: `parseSearchParams(params, { mergeWith: { where: { tenantId } } })`
+  - After: `parseSearchParams(params, { context: { where: { tenantId } } })`
+- **BREAKING: `PrismaQuery` type removed** - Use `SearchParamsQuery` instead
+  - Before: `import type { PrismaQuery } from 'prisma-searchparams-mapper'`
+  - After: `import type { SearchParamsQuery } from 'prisma-searchparams-mapper'`
+- `PrismaFilterValue` now includes `Date`
+- `toSearchParams()` handles `Date` objects correctly (ISO string serialization)
+
+### Fixed
+- String operators (`contains`, `startsWith`, `endsWith`) no longer coerce numeric/boolean-like strings
+  - Before: `?name_contains=123` → `{ name: { contains: 123 } }` (number, wrong)
+  - After: `?name_contains=123` → `{ name: { contains: '123' } }` (string, correct)
+
 ## [1.1.5] - 2026-01-26
 
 ### Fixed
