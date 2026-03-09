@@ -21,14 +21,6 @@ export interface SearchParamsQuery<
   take?: number
 }
 
-/**
- * @deprecated Use SearchParamsQuery instead
- */
-export type PrismaQuery<
-  TWhereInput = PrismaWhere,
-  TOrderByInput = Record<string, 'asc' | 'desc'>,
-> = SearchParamsQuery<TWhereInput, TOrderByInput>
-
 export type SearchMode = 'default' | 'insensitive'
 export type LogicalOperator = 'AND' | 'OR'
 export type FieldType = 'string' | 'number' | 'boolean' | 'date'
@@ -45,10 +37,6 @@ export interface ParseOptions<
   orderKey?: string // Default: 'order'
   fields?: Record<string, FieldType> // Explicit field types for casting (e.g. { age: 'number', active: 'boolean' })
   context?: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>> // Contextual query (tenant filters, default sorting, etc.)
-  /**
-   * @deprecated Use 'context' instead. Will be removed in v2.0.0
-   */
-  mergeWith?: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>> // Merge with existing query
 }
 
 export function parseSearchParams<
@@ -372,8 +360,7 @@ export function parseSearchParams<
   }
 
   // Merge with contextual query if provided
-  // Priority: context > mergeWith (deprecated)
-  const contextualQuery = options.context || options.mergeWith
+  const contextualQuery = options.context
   if (contextualQuery) {
     return mergeQuery(contextualQuery, result)
   }

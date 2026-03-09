@@ -1572,47 +1572,6 @@ describe('Smart Merge (deepMergeWhere)', () => {
       })
       expect(query.orderBy).toEqual({ createdAt: 'desc' })
     })
-
-    it('should still work with deprecated mergeWith for backward compatibility', () => {
-      const query = parseSearchParams('?search=john', {
-        searchFields: ['name', 'email'],
-        mergeWith: {
-          where: { tenantId: 'tenant-123' },
-          orderBy: { createdAt: 'desc' as const },
-        },
-      })
-
-      // Should work exactly like context
-      expect(query.where).toEqual({
-        AND: [
-          {
-            OR: [
-              { name: { contains: 'john', mode: 'insensitive' } },
-              { email: { contains: 'john', mode: 'insensitive' } },
-            ],
-          },
-          { tenantId: 'tenant-123' },
-        ],
-      })
-      expect(query.orderBy).toEqual({ createdAt: 'desc' })
-    })
-
-    it('should prioritize context over mergeWith when both are provided', () => {
-      const query = parseSearchParams('?status=active', {
-        context: {
-          where: { tenantId: 'context-tenant' },
-        },
-        mergeWith: {
-          where: { tenantId: 'mergeWith-tenant' },
-        },
-      })
-
-      // context should win
-      expect(query.where).toEqual({
-        status: 'active',
-        tenantId: 'context-tenant',
-      })
-    })
   })
 
   describe('Real-world scenario: Multi-tenant with permissions', () => {

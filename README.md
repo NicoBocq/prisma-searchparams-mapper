@@ -140,8 +140,10 @@ const users2 = await prisma.user.findMany(query2);
 ### Operators Support
 
 ```typescript
-// Comparison operators
-const query = parseSearchParams('?age_gte=18&age_lte=65&score_gt=50&score_lt=100');
+// Comparison operators (declare field types for proper casting)
+const query = parseSearchParams('?age_gte=18&age_lte=65&score_gt=50&score_lt=100', {
+  fields: { age: 'number', score: 'number' },
+});
 // Result: { where: { age: { gte: 18, lte: 65 }, score: { gt: 50, lt: 100 } } }
 
 // Multiple values
@@ -156,6 +158,45 @@ const query3 = parseSearchParams('?name_contains=john&email_startsWith=admin&bio
 const query4 = parseSearchParams('?name_contains=john', { searchMode: 'insensitive' });
 // Result: { where: { name: { contains: 'john', mode: 'insensitive' } } }
 ```
+
+### Field Types (`fields` option)
+
+By default, all URL parameter values are kept as strings. Use the `fields` option to declare explicit types for casting:
+
+```typescript
+// Simple fields
+const query = parseSearchParams('?age=25&isActive=true&createdAt=2024-01-15', {
+  fields: {
+    age: 'number',
+    isActive: 'boolean',
+    createdAt: 'date',
+  },
+});
+// Result: { where: { age: 25, isActive: true, createdAt: new Date('2024-01-15') } }
+
+// Works with all operators
+const query2 = parseSearchParams('?age_gte=18&isActive=true', {
+  fields: { age: 'number', isActive: 'boolean' },
+});
+// Result: { where: { age: { gte: 18 }, isActive: true } }
+
+// Nested fields use dot notation
+const query3 = parseSearchParams('?order.total_gte=100', {
+  fields: { 'order.total': 'number' },
+});
+// Result: { where: { order: { total: { gte: 100 } } } }
+
+// Best used with createParser for reusable typed parsers
+const userParser = createParser<Prisma.UserWhereInput>({
+  fields: { age: 'number', isActive: 'boolean', createdAt: 'date' },
+});
+```
+
+**Supported types:**
+- `'string'` — default, no cast
+- `'number'` — `Number(value)`
+- `'boolean'` — `value === 'true'`
+- `'date'` — `new Date(value)`, falls back to string if value is not a valid date
 
 ### Global Search
 
@@ -245,15 +286,17 @@ const query = parseSearchParams('?customer.name=John&customer.email_contains=@ex
 //   } 
 // }
 
-// Works with all operators
-const query2 = parseSearchParams('?order.total_gte=100&order.status=pending');
-// Result: { 
-//   where: { 
-//     order: { 
-//       total: { gte: 100 }, 
-//       status: 'pending' 
-//     } 
-//   } 
+// Works with all operators (declare field types for casting)
+const query2 = parseSearchParams('?order.total_gte=100&order.status=pending', {
+  fields: { 'order.total': 'number' },
+});
+// Result: {
+//   where: {
+//     order: {
+//       total: { gte: 100 },
+//       status: 'pending'
+//     }
+//   }
 // }
 
 // Deeply nested relations
@@ -366,7 +409,7 @@ const query3 = parseSearchParams('?page=2&pageSize=50');
 
 ## API Reference
 
-### `parseSearchParams<TWhereInput, TOrderByInput>(input: string | URLSearchParams | Record<string, string | string[] | undefined>, options?: ParseOptions): PrismaQuery<TWhereInput, TOrderByInput>`
+### `parseSearchParams<TWhereInput, TOrderByInput>(input, options?): SearchParamsQuery<TWhereInput, TOrderByInput>`
 
 Converts URL search parameters to a Prisma query object.
 
@@ -383,8 +426,8 @@ Converts URL search parameters to a Prisma query object.
   - `logicalOperator` - Logical operator: `'AND'` or `'OR'` for combining conditions
   - `searchKey` - Custom key for global search (default: `'search'`, also accepts `'q'` as alias)
   - `orderKey` - Custom key for sorting (default: `'order'`)
+  - `fields` - Explicit field types for casting: `Record<string, 'string' | 'number' | 'boolean' | 'date'>`. All values are strings by default. Use dot notation for nested fields (e.g., `{ 'order.total': 'number' }`)
   - `context` - Contextual query to merge with (tenant filters, default sorting, etc.)
-  - `mergeWith` - ⚠️ **Deprecated**: Use `context` instead (will be removed in v2.0.0)
 
 **Type-safe searchFields:**
 ```typescript
@@ -408,13 +451,13 @@ const query2 = parseSearchParams<Prisma.PostWhereInput>('?search=john', {
 - Sorting: `?order=field_asc` or `?order=field_desc`
 - Pagination: `?page=2` (default page size: 10)
 
-### `toSearchParams<TWhereInput, TOrderByInput>(query: Partial<PrismaQuery<TWhereInput, TOrderByInput>>): URLSearchParams`
+### `toSearchParams<TWhereInput, TOrderByInput>(query: Partial<SearchParamsQuery<TWhereInput, TOrderByInput>>): URLSearchParams`
 
-Converts a Prisma query object back to URLSearchParams.
+Converts a Prisma query object back to URLSearchParams. `Date` values are serialized as ISO strings.
 
-### `parseNestedRelations(input: string | URLSearchParams): Record<string, any>`
+### `parseNestedRelations(input, fields?): Record<string, any>`
 
-Parses nested relation filters using dot notation.
+Parses nested relation filters using dot notation. Accepts an optional `fields` config for type casting.
 
 Example: `?user.name=John&post.title_contains=hello`
 
@@ -422,7 +465,7 @@ Example: `?user.name=John&post.title_contains=hello`
 
 Merges nested relations into an existing where clause.
 
-### `mergeWhere<TWhereInput>(contextualWhere: Partial<TWhereInput>, parsedQuery: PrismaQuery<TWhereInput>): PrismaQuery<TWhereInput>`
+### `mergeWhere<TWhereInput>(contextualWhere: Partial<TWhereInput>, parsedQuery: SearchParamsQuery<TWhereInput>): SearchParamsQuery<TWhereInput>`
 
 Merges contextual where clause (tenant filters, user filters, etc.) with parsed query.
 
@@ -454,7 +497,7 @@ const merged2 = mergeWhere(permissionWhere, query2);
 // Both OR conditions are preserved!
 ```
 
-### `mergeQuery<TWhereInput, TOrderByInput>(contextualQuery: Partial<PrismaQuery>, parsedQuery: PrismaQuery): PrismaQuery`
+### `mergeQuery<TWhereInput, TOrderByInput>(contextualQuery: Partial<SearchParamsQuery>, parsedQuery: SearchParamsQuery): SearchParamsQuery`
 
 Merges contextual query (where + orderBy + pagination) with parsed query.
 
@@ -502,9 +545,9 @@ const users = await prisma.user.findMany(query);
 - Use `context` option for simple cases (recommended)
 - Use `mergeQuery()` function when you need more control or reusable contextual queries
 
-### `createParser<TWhereInput, TOrderByInput>()`
+### `createParser<TWhereInput, TOrderByInput>(options?)`
 
-Creates a reusable type-safe parser for a specific Prisma model.
+Creates a reusable type-safe parser for a specific Prisma model. Options passed at creation time are merged with per-call options (call-time options take priority).
 
 **Type Parameters:**
 - `TWhereInput` - Prisma WhereInput type
@@ -513,7 +556,7 @@ Creates a reusable type-safe parser for a specific Prisma model.
 **Returns an object with:**
 - `parse(input, options?)` - Parse search params
 - `toParams(query)` - Convert to search params
-- `parseRelations(input)` - Parse nested relations
+- `parseRelations(input)` - Parse nested relations (inherits `fields` from creator options)
 - `mergeRelations(where, relations)` - Merge relations
 
 **Example:**
@@ -523,14 +566,16 @@ import { Prisma } from '@prisma/client';
 const userParser = createParser<
   Prisma.UserWhereInput,
   Prisma.UserOrderByWithRelationInput
->();
+>({
+  fields: { age: 'number', isActive: 'boolean', createdAt: 'date' },
+});
 
 const postParser = createParser<
   Prisma.PostWhereInput,
   Prisma.PostOrderByWithRelationInput
 >();
 
-const userQuery = userParser.parse('?email_contains=@example.com&order=createdAt_desc');
+const userQuery = userParser.parse('?age_gte=18&isActive=true&order=createdAt_desc');
 const postQuery = postParser.parse('?published=true&order=title_asc');
 ```
 
@@ -541,12 +586,13 @@ const postQuery = postParser.parse('?published=true&order=title_asc');
 Full TypeScript support with exported types:
 
 ```typescript
-import type { 
-  PrismaQuery, 
-  PrismaWhere, 
+import type {
+  SearchParamsQuery,
+  PrismaWhere,
   PrismaFilterValue,
   PrismaOperator,
-  ParseOptions
+  ParseOptions,
+  FieldType,
 } from 'prisma-searchparams-mapper';
 ```
 
@@ -561,11 +607,13 @@ const query = parseSearchParams<
   Prisma.UserOrderByWithRelationInput
 >('?email=test@example.com&order=createdAt_desc');
 
-// Reusable parsers
+// Reusable parsers with fields config
 const userParser = createParser<
   Prisma.UserWhereInput,
   Prisma.UserOrderByWithRelationInput
->();
+>({
+  fields: { age: 'number', isActive: 'boolean', createdAt: 'date' },
+});
 
 const postParser = createParser<
   Prisma.PostWhereInput,
