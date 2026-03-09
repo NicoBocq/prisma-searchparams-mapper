@@ -270,9 +270,7 @@ export function parseSearchParams<
     const fieldType = fields[key] ?? 'string'
     if (existing) {
       if (Array.isArray(existing)) {
-        ;(existing as (string | number | boolean)[]).push(
-          castValue(value, fieldType),
-        )
+        ;(existing as PrismaFilterValue[]).push(castValue(value, fieldType))
       } else if (
         typeof existing === 'object' &&
         existing !== null &&
